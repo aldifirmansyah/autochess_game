@@ -2488,7 +2488,7 @@ class Game {
     }
 
     nextTurn() {
-        if (this.currentSelectionTurn === 'blue' && this.selectedFighters.blue.length === this.maxFightersPerTeam) {
+        if (this.currentSelectionTurn === 'blue' && this.selectedFighters.blue.length > 0) {
             this.currentSelectionTurn = 'red';
             this.selectionComplete.blue = true;
             this.updateSelectionUI();
@@ -2515,10 +2515,10 @@ class Game {
         // Show current turn
         if (this.currentSelectionTurn === 'blue') {
             blueIndicator.classList.add('active');
-            instruction.textContent = 'Blue Team\'s turn - Choose 5 fighters';
+            instruction.textContent = 'Blue Team\'s turn - Choose 1-5 fighters';
         } else {
             redIndicator.classList.add('active');
-            instruction.textContent = 'Red Team\'s turn - Choose 5 fighters';
+            instruction.textContent = 'Red Team\'s turn - Choose 1-5 fighters';
         }
 
         // Show/hide team selections
@@ -2549,22 +2549,22 @@ class Game {
 
         // Blue team next button
         if (this.currentSelectionTurn === 'blue') {
-            blueNextBtn.disabled = this.selectedFighters.blue.length !== this.maxFightersPerTeam;
+            blueNextBtn.disabled = this.selectedFighters.blue.length === 0;
         }
 
         // Red team back button
         redBackBtn.disabled = false;
 
         // Start battle button
-        const bothTeamsComplete = this.selectedFighters.blue.length === this.maxFightersPerTeam &&
-            this.selectedFighters.red.length === this.maxFightersPerTeam;
+        const bothTeamsComplete = this.selectedFighters.blue.length > 0 &&
+            this.selectedFighters.red.length > 0;
         startButton.disabled = !bothTeamsComplete;
     }
 
     updateSelectionStatus(team) {
         const status = document.getElementById(`${team}-selection-status`);
         const count = this.selectedFighters[team].length;
-        status.textContent = `Selected: ${count}/${this.maxFightersPerTeam}`;
+        status.textContent = `Selected: ${count} fighter${count !== 1 ? 's' : ''} (max ${this.maxFightersPerTeam})`;
 
         // Update visual feedback
         const grid = document.getElementById(`${team}-fighter-grid`);
