@@ -2299,13 +2299,16 @@ class Game {
         this.bases = {
             blue: {
                 x: 50, y: 300, health: 1000, maxHealth: 1000, side: 'blue',
-                attackDamage: 40, attackRange: 120, attackCooldown: 2000, lastAttackTime: 0
+                attackDamage: 40, attackRange: 250, attackCooldown: 500, lastAttackTime: 0
             },
             red: {
                 x: 1150, y: 300, health: 1000, maxHealth: 1000, side: 'red',
-                attackDamage: 40, attackRange: 120, attackCooldown: 2000, lastAttackTime: 0
+                attackDamage: 40, attackRange: 250, attackCooldown: 500, lastAttackTime: 0
             }
         };
+
+        // Initialize base projectiles array
+        this.baseProjectiles = [];
 
         this.setupObstacles();
         this.setupFighterSelection();
@@ -2600,6 +2603,9 @@ class Game {
         // Hide the modal
         const modal = document.getElementById('fighter-selection-modal');
         modal.style.display = 'none';
+
+        // Clean up any existing projectiles
+        this.cleanupBaseProjectiles();
 
         // Setup the selected fighters for spawning
         this.setupSelectedFighters();
@@ -3073,9 +3079,8 @@ class Game {
             if (currentTime - this.bases.blue.lastAttackTime >= this.bases.blue.attackCooldown) {
                 const target = this.findBaseTarget('blue');
                 if (target) {
-                    target.takeDamage(this.bases.blue.attackDamage);
                     this.bases.blue.lastAttackTime = currentTime;
-                    this.showBaseAttackEffect('blue', target.x, target.y);
+                    this.createBaseProjectile('blue', target);
                 }
             }
         }
@@ -3085,12 +3090,14 @@ class Game {
             if (currentTime - this.bases.red.lastAttackTime >= this.bases.red.attackCooldown) {
                 const target = this.findBaseTarget('red');
                 if (target) {
-                    target.takeDamage(this.bases.red.attackDamage);
                     this.bases.red.lastAttackTime = currentTime;
-                    this.showBaseAttackEffect('red', target.x, target.y);
+                    this.createBaseProjectile('red', target);
                 }
             }
         }
+
+        // Update existing projectiles
+        this.updateBaseProjectiles();
     }
 
     findBaseTarget(baseSide) {
@@ -3116,6 +3123,100 @@ class Game {
         }
 
         return closestTarget;
+    }
+
+    createBaseProjectile(baseSide, target) {
+        const base = this.bases[baseSide];
+
+        // Get the canvas position on the page
+        const canvasRect = this.canvas.getBoundingClientRect();
+
+        const projectile = {
+            x: base.x,
+            y: base.y,
+            targetX: target.x,
+            targetY: target.y,
+            baseSide: baseSide,
+            damage: base.attackDamage,
+            speed: 3, // pixels per frame
+            element: null,
+            target: target
+        };
+
+        // Create projectile visual element positioned relative to the canvas
+        const projectileElement = document.createElement('div');
+        projectileElement.style.cssText = `
+            position: fixed;
+            left: ${canvasRect.left + base.x}px;
+            top: ${canvasRect.top + base.y}px;
+            width: 12px;
+            height: 12px;
+            background: ${baseSide === 'blue' ? '#4ecdc4' : '#ff6b6b'};
+            border-radius: 50%;
+            z-index: 50;
+            pointer-events: none;
+            box-shadow: 0 0 8px ${baseSide === 'blue' ? '#4ecdc4' : '#ff6b6b'};
+            animation: baseProjectile 0.8s ease-in-out infinite;
+        `;
+
+        document.body.appendChild(projectileElement);
+        projectile.element = projectileElement;
+
+        this.baseProjectiles.push(projectile);
+    }
+
+    updateBaseProjectiles() {
+        for (let i = this.baseProjectiles.length - 1; i >= 0; i--) {
+            const projectile = this.baseProjectiles[i];
+
+            // Calculate direction to target
+            const dx = projectile.targetX - projectile.x;
+            const dy = projectile.targetY - projectile.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+
+            if (distance <= projectile.speed) {
+                // Projectile reached target
+                this.hitTargetWithProjectile(projectile);
+                this.baseProjectiles.splice(i, 1);
+            } else {
+                // Move projectile towards target
+                const angle = Math.atan2(dy, dx);
+                projectile.x += Math.cos(angle) * projectile.speed;
+                projectile.y += Math.sin(angle) * projectile.speed;
+
+                // Update visual position
+                if (projectile.element) {
+                    const canvasRect = this.canvas.getBoundingClientRect();
+                    projectile.element.style.left = `${canvasRect.left + projectile.x}px`;
+                    projectile.element.style.top = `${canvasRect.top + projectile.y}px`;
+                }
+            }
+        }
+    }
+
+    hitTargetWithProjectile(projectile) {
+        // Check if target is still valid
+        if (projectile.target && projectile.target.state !== 'dead' && projectile.target.health > 0) {
+            // Deal damage
+            projectile.target.takeDamage(projectile.damage);
+        }
+
+        // Remove projectile element
+        if (projectile.element && projectile.element.parentNode) {
+            projectile.element.parentNode.removeChild(projectile.element);
+        }
+    }
+
+    cleanupBaseProjectiles() {
+        // Remove all projectile elements from DOM
+        this.baseProjectiles.forEach(projectile => {
+            if (projectile.element && projectile.element.parentNode) {
+                projectile.element.parentNode.removeChild(projectile.element);
+            }
+        });
+
+        // Clear the projectiles array
+        this.baseProjectiles = [];
     }
 
     showBaseAttackEffect(baseSide, targetX, targetY) {

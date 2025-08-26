@@ -249,6 +249,23 @@ body {
     }
 }
 
+@keyframes baseProjectile {
+    0% {
+        transform: scale(1);
+        box-shadow: 0 0 8px currentColor;
+    }
+
+    50% {
+        transform: scale(1.2);
+        box-shadow: 0 0 12px currentColor;
+    }
+
+    100% {
+        transform: scale(1);
+        box-shadow: 0 0 8px currentColor;
+    }
+}
+
 @keyframes criticalHit {
     0% {
         opacity: 1;
