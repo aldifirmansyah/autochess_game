@@ -255,7 +255,6 @@ class Fighter {
                             const healAmount = Math.floor(projectile.damage * (projectile.attacker.lifesteal / 100));
                             projectile.attacker.health = Math.min(projectile.attacker.maxHealth, projectile.attacker.health + healAmount);
                             projectile.attacker.healEffectTimer = 30; // Show healing effect for 30 frames
-                            console.log(`${projectile.attacker.type} (${projectile.attacker.side}) lifestealed ${healAmount} HP from ${projectile.damage} damage (${projectile.attacker.lifesteal}% lifesteal)`);
                         }
 
                         this.projectiles.splice(i, 1);
@@ -334,7 +333,7 @@ class Fighter {
                 }
 
                 // Archer-specific line of sight bonus
-                if (this.type === 'archer') {
+                if (this.attackRange > 100) {
                     const hasLOS = this.hasLineOfSight(this.x, this.y, enemy.x, enemy.y);
                     if (hasLOS) {
                         score += 800; // Heavy bonus for clear line of sight
@@ -527,7 +526,6 @@ class Fighter {
                     // Apply damage to target
                     const targetHealthBefore = this.target.health;
                     this.target.takeDamage(damage);
-                    console.log(`${this.target.type} (${this.target.side}) health: ${targetHealthBefore} -> ${this.target.health}`);
 
                     // Apply lifesteal if this fighter has it
                     if (this.lifesteal > 0 && damage > 0) {
@@ -535,9 +533,6 @@ class Fighter {
                         const oldHealth = this.health;
                         this.health = Math.min(this.maxHealth, this.health + healAmount);
                         this.healEffectTimer = 30; // Show healing effect for 30 frames
-                        console.log(`${this.type} (${this.side}) lifestealed ${healAmount} HP from ${damage} damage (${this.lifesteal}% lifesteal) - Health: ${oldHealth} -> ${this.health}`);
-                    } else {
-                        console.log(`${this.type} (${this.side}) attack: damage=${damage}, lifesteal=${this.lifesteal}%`);
                     }
 
                     this.lastAttackTime = currentTime;
@@ -2017,15 +2012,7 @@ class Fighter {
         const endX = Math.floor(target.x / 10) * 10;
         const endY = Math.floor(target.y / 10) * 10;
 
-        // Check if target is reachable
-        if (!this.isPositionReachable(endX, endY, aliveFighters)) {
-            this.path = [];
-            this.pathIndex = 0;
-            return false;
-        }
-
-        const path = this.aStarPathfinding(startX, startY, endX, endY, aliveFighters);
-
+        const path = this.dijkstraPathfinding(startX, startY, endX, endY, aliveFighters);
         if (path && path.length > 0) {
             this.path = path;
             this.pathIndex = 0;
@@ -2037,95 +2024,56 @@ class Fighter {
         }
     }
 
-    aStarPathfinding(startX, startY, endX, endY, aliveFighters) {
-        const gridSize = 10; // Grid cell size
-        const maxIterations = 1000; // Prevent infinite loops
-
+    dijkstraPathfinding(startX, startY, endX, endY, aliveFighters) {
         // Create grid bounds
         const minX = Math.max(0, Math.min(startX, endX) - 100);
         const maxX = Math.min(1200, Math.max(startX, endX) + 100);
         const minY = Math.max(0, Math.min(startY, endY) - 100);
         const maxY = Math.min(600, Math.max(startY, endY) + 100);
 
-        const openSet = [];
-        const closedSet = new Set();
-        const cameFrom = new Map();
-        const gScore = new Map();
-        const fScore = new Map();
+        const gridWidth = 1200 + 1;
+        const gridHeight = 600 + 1;
+        const cameFrom = [];
+        const visited = new Set();
+        for (let x = 0; x < gridWidth; x++) {
+            cameFrom[x] = [];
+            for (let y = 0; y < gridHeight; y++) {
+                cameFrom[x][y] = null;
+            }
+        }
+        const queue = [];
+        queue.push({ x: startX, y: startY, distance: 0 });
+        cameFrom[startX][startY] = { x: startX, y: startY };
+        visited.add(`${startX},${startY}`);
 
-        const startKey = `${startX},${startY}`;
-        const endKey = `${endX},${endY}`;
-
-        // Initialize start node
-        openSet.push(startKey);
-        gScore.set(startKey, 0);
-        fScore.set(startKey, this.heuristic(startX, startY, endX, endY));
-
-        let iterations = 0;
-
-        while (openSet.length > 0 && iterations < maxIterations) {
-            iterations++;
-
-            // Find node with lowest fScore
-            let currentKey = openSet[0];
-            let lowestFScore = fScore.get(currentKey);
-
-            for (let key of openSet) {
-                const score = fScore.get(key);
-                if (score < lowestFScore) {
-                    lowestFScore = score;
-                    currentKey = key;
+        while (queue.length > 0) {
+            const current = queue.shift();
+            if (Math.abs(current.x - endX) < this.attackRange && Math.abs(current.y - endY) < this.attackRange) {
+                // quick fix for range fighters
+                if (this.attackRange > 100 && this.hasLineOfSight(current.x, current.y, endX, endY, aliveFighters)) {
+                    return this.reconstructPath(cameFrom, current.x, current.y);
+                } else {
+                    return this.reconstructPath(cameFrom, current.x, current.y);
                 }
             }
 
-            // Remove current node from open set
-            const currentIndex = openSet.indexOf(currentKey);
-            openSet.splice(currentIndex, 1);
-
-            // Add to closed set
-            closedSet.add(currentKey);
-
-            // Parse current position
-            const [currentX, currentY] = currentKey.split(',').map(Number);
-
-            // Check if we reached the goal
-            if (currentKey === endKey) {
-                return this.reconstructPath(cameFrom, currentKey);
-            }
-
-            // Check all neighbors
-            const neighbors = this.getNeighbors(currentX, currentY, gridSize, minX, maxX, minY, maxY);
-
+            const neighbors = this.getNeighbors(current.x, current.y, 10, minX, maxX, minY, maxY);
             for (let neighbor of neighbors) {
                 const neighborKey = `${neighbor.x},${neighbor.y}`;
-
-                // Skip if already evaluated
-                if (closedSet.has(neighborKey)) {
+                if (visited.has(neighborKey)) {
                     continue;
                 }
-
-                // Check if neighbor is reachable
+                visited.add(neighborKey);
                 if (!this.isPositionReachable(neighbor.x, neighbor.y, aliveFighters)) {
                     continue;
                 }
-
-                const tentativeGScore = gScore.get(currentKey) + this.distance(currentX, currentY, neighbor.x, neighbor.y);
-
-                // Add to open set if not already there
-                if (!openSet.includes(neighborKey)) {
-                    openSet.push(neighborKey);
-                } else if (tentativeGScore >= gScore.get(neighborKey)) {
-                    continue; // This path is not better
+                if (!cameFrom[neighbor.x][neighbor.y]) {
+                    cameFrom[neighbor.x][neighbor.y] = { x: current.x, y: current.y };
+                    queue.push({ x: neighbor.x, y: neighbor.y, distance: current.distance + 1 });
                 }
-
-                // This path is the best so far
-                cameFrom.set(neighborKey, currentKey);
-                gScore.set(neighborKey, tentativeGScore);
-                fScore.set(neighborKey, tentativeGScore + this.heuristic(neighbor.x, neighbor.y, endX, endY));
             }
         }
 
-        // No path found
         return null;
     }
 
@@ -2172,14 +2120,12 @@ class Fighter {
 
         // Check collision with obstacles
         for (let obstacle of window.game.obstacles) {
-            const closestX = Math.max(obstacle.x, Math.min(x, obstacle.x + obstacle.width));
-            const closestY = Math.max(obstacle.y, Math.min(y, obstacle.y + obstacle.height));
-
-            const dx = x - closestX;
-            const dy = y - closestY;
+            const dx = x - obstacle.x;
+            const dy = y - obstacle.y;
             const distance = Math.sqrt(dx * dx + dy * dy);
+            const minDistance = this.collisionRadius + Math.max(obstacle.width, obstacle.height);
 
-            if (distance < this.collisionRadius) {
+            if (distance < minDistance) {
                 return false;
             }
         }
@@ -2187,10 +2133,7 @@ class Fighter {
         return true;
     }
 
-    heuristic(x1, y1, x2, y2) {
-        // Manhattan distance for grid-based pathfinding
-        return Math.abs(x1 - x2) + Math.abs(y1 - y2);
-    }
+    // heuristic function removed - not needed for Dijkstra's algorithm
 
     distance(x1, y1, x2, y2) {
         // Euclidean distance
@@ -2199,16 +2142,16 @@ class Fighter {
         return Math.sqrt(dx * dx + dy * dy);
     }
 
-    reconstructPath(cameFrom, currentKey) {
+    reconstructPath(cameFrom, currentX, currentY) {
         const path = [];
-        let current = currentKey;
-
+        let current = { x: currentX, y: currentY };
         while (current) {
-            const [x, y] = current.split(',').map(Number);
-            path.unshift({ x, y });
-            current = cameFrom.get(current);
+            if (path.length > 0 && current.x === path[0].x && current.y === path[0].y) {
+                break;
+            }
+            path.unshift({ x: current.x, y: current.y });
+            current = cameFrom[current.x][current.y];
         }
-
         return path;
     }
 
@@ -2276,8 +2219,8 @@ class Game {
         this.fighterSelectionComplete = false;
 
         // Gold system
-        this.blueGold = 0;
-        this.redGold = 0;
+        this.blueGold = 100;
+        this.redGold = 100;
         this.lastGoldTick = Date.now();
 
         // Comeback mechanics
@@ -3320,7 +3263,6 @@ class Game {
             this.lastGoldTick = currentTime;
 
             // Debug: Log gold updates
-            console.log(`Gold update - Blue: ${this.blueGold}, Red: ${this.redGold}`);
         }
 
         // Update spawn cooldowns
@@ -3369,6 +3311,9 @@ class Game {
         for (let fighter of this.fighters) {
             fighter.draw(this.ctx);
         }
+
+        // Debug: Draw path dots for all fighters
+        // this.drawAllFighterPaths()drawAllFighterPaths;
 
         // Draw spawn areas
         this.drawSpawnAreas();
@@ -3548,6 +3493,56 @@ class Game {
 
         this.ctx.font = '24px Arial';
         this.ctx.fillText('Refresh page to play again', this.canvas.width / 2, this.canvas.height / 2 + 50);
+    }
+
+    drawAllFighterPaths() {
+        // Debug visualization: Draw dots for every fighter's path property
+        for (let fighter of this.fighters) {
+            if (fighter.path && fighter.path.length > 0) {
+                // Draw path dots with different colors for each side
+                const dotColor = fighter.side === 'blue' ? '#4ecdc4' : '#ff6b6b';
+                const dotSize = 4;
+
+                this.ctx.fillStyle = dotColor;
+
+                // Draw dots for each path point
+                for (let i = 0; i < fighter.path.length; i++) {
+                    const point = fighter.path[i];
+
+                    // Draw a larger, more visible dot
+                    this.ctx.beginPath();
+                    this.ctx.arc(point.x, point.y, dotSize, 0, Math.PI * 2);
+                    this.ctx.fill();
+
+                    // Add a white border for better visibility
+                    this.ctx.strokeStyle = '#ffffff';
+                    this.ctx.lineWidth = 1;
+                    this.ctx.stroke();
+
+                    // Add path index number for debugging
+                    this.ctx.fillStyle = '#ffffff';
+                    this.ctx.font = '10px Arial';
+                    this.ctx.textAlign = 'center';
+                    this.ctx.fillText(i.toString(), point.x, point.y - 8);
+
+                    // Reset fill color for next dot
+                    this.ctx.fillStyle = dotColor;
+                }
+
+                // Draw a special indicator for the current path index
+                if (fighter.pathIndex < fighter.path.length) {
+                    const currentPoint = fighter.path[fighter.pathIndex];
+                    this.ctx.fillStyle = '#ffff00'; // Yellow for current position
+                    this.ctx.beginPath();
+                    this.ctx.arc(currentPoint.x, currentPoint.y, 6, 0, Math.PI * 2);
+                    this.ctx.fill();
+
+                    this.ctx.strokeStyle = '#000000';
+                    this.ctx.lineWidth = 2;
+                    this.ctx.stroke();
+                }
+            }
+        }
     }
 
     gameLoop() {
