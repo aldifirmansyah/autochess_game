@@ -254,7 +254,7 @@ class Fighter {
                         if (projectile.attacker && projectile.attacker.lifesteal > 0 && projectile.damage > 0) {
                             const healAmount = Math.floor(projectile.damage * (projectile.attacker.lifesteal / 100));
                             projectile.attacker.health = Math.min(projectile.attacker.maxHealth, projectile.attacker.health + healAmount);
-                            projectile.attacker.healEffectTimer = 30; // Show healing effect for 30 frames
+                            projectile.attacker.healEffectTimer = 60; // Show healing effect for 60 frames
                         }
 
                         this.projectiles.splice(i, 1);
@@ -490,7 +490,7 @@ class Fighter {
                     if (Math.random() * 100 < this.criticalChance) {
                         damage = Math.floor(damage * this.criticalMultiplier);
                         isCritical = true;
-                        this.criticalEffectTimer = 30; // Show critical effect for 30 frames
+                        this.criticalEffectTimer = 60; // Show critical effect for 60 frames
                     }
 
                     this.target.health -= damage; // Direct damage to base
@@ -520,7 +520,7 @@ class Fighter {
                     if (Math.random() * 100 < this.criticalChance) {
                         damage = Math.floor(damage * this.criticalMultiplier);
                         isCritical = true;
-                        this.criticalEffectTimer = 30; // Show critical effect for 30 frames
+                        this.criticalEffectTimer = 60; // Show critical effect for 60 frames
                     }
 
                     // Apply damage to target
@@ -532,7 +532,7 @@ class Fighter {
                         const healAmount = Math.floor(damage * (this.lifesteal / 100));
                         const oldHealth = this.health;
                         this.health = Math.min(this.maxHealth, this.health + healAmount);
-                        this.healEffectTimer = 30; // Show healing effect for 30 frames
+                        this.healEffectTimer = 60; // Show healing effect for 60 frames
                     }
 
                     this.lastAttackTime = currentTime;
@@ -573,7 +573,7 @@ class Fighter {
         if (Math.random() * 100 < this.criticalChance) {
             damage = Math.floor(damage * this.criticalMultiplier);
             isCritical = true;
-            this.criticalEffectTimer = 30; // Show critical effect for 30 frames
+            this.criticalEffectTimer = 60; // Show critical effect for 60 frames
         }
 
         const projectile = {
@@ -665,7 +665,7 @@ class Fighter {
         // Check for evasion first
         if (Math.random() * 100 < this.evasion) {
             // Attack was evaded - no damage taken
-            this.evasionEffectTimer = 30; // Show evasion effect for 30 frames
+            this.evasionEffectTimer = 60; // Show evasion effect for 60 frames
             return;
         }
 
@@ -1513,11 +1513,6 @@ class Fighter {
         // Draw healing effect
         if (this.healEffectTimer > 0) {
             const opacity = this.healEffectTimer / 30;
-            ctx.fillStyle = `rgba(0, 255, 0, ${opacity * 0.5})`;
-            ctx.beginPath();
-            ctx.arc(this.x, this.y - 30, 25, 0, Math.PI * 2);
-            ctx.fill();
-
             // Healing text
             ctx.fillStyle = `rgba(0, 255, 0, ${opacity})`;
             ctx.font = '12px Arial';
@@ -1528,11 +1523,6 @@ class Fighter {
         // Draw critical hit effect
         if (this.criticalEffectTimer > 0) {
             const opacity = this.criticalEffectTimer / 30;
-            ctx.fillStyle = `rgba(255, 215, 0, ${opacity * 0.5})`;
-            ctx.beginPath();
-            ctx.arc(this.x, this.y - 30, 25, 0, Math.PI * 2);
-            ctx.fill();
-
             // Critical text
             ctx.fillStyle = `rgba(255, 215, 0, ${opacity})`;
             ctx.font = '12px Arial';
@@ -1543,25 +1533,11 @@ class Fighter {
         // Draw evasion effect
         if (this.evasionEffectTimer > 0) {
             const opacity = this.evasionEffectTimer / 30;
-            ctx.fillStyle = `rgba(0, 255, 255, ${opacity * 0.5})`;
-            ctx.beginPath();
-            ctx.arc(this.x, this.y - 30, 25, 0, Math.PI * 2);
-            ctx.fill();
-
             // Evasion text
             ctx.fillStyle = `rgba(0, 255, 255, ${opacity})`;
             ctx.font = '12px Arial';
             ctx.textAlign = 'center';
             ctx.fillText('DODGE!', this.x, this.y - 40);
-        }
-
-        // Draw heal aura effect
-        if (this.healAura > 0) {
-            ctx.strokeStyle = 'rgba(0, 255, 0, 0.3)';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.arc(this.x, this.y, this.healAuraRange, 0, Math.PI * 2);
-            ctx.stroke();
         }
     }
 
@@ -2223,8 +2199,8 @@ class Game {
         this.fighterSelectionComplete = false;
 
         // Gold system
-        this.blueGold = 100;
-        this.redGold = 100;
+        this.blueGold = 0;
+        this.redGold = 0;
         this.lastGoldTick = Date.now();
 
         // Comeback mechanics
