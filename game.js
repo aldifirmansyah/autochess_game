@@ -103,7 +103,7 @@ class Fighter {
                 this.maxHealth = 500;
                 this.attackDamage = 45;
                 this.attackRange = 50;
-                this.attackCooldown = 1500; // 1.5 seconds
+                this.attackCooldown = 1300; // 1.3 seconds
                 this.spawnCost = 5;
                 this.spawnCooldown = 3000; // 3 seconds for troll (premium unit)
                 // Troll: Strong fighter with lifesteal ability
@@ -117,7 +117,7 @@ class Fighter {
                 this.attackRange = 220;
                 this.attackCooldown = 1000; // 1 second
                 this.spawnCost = 3;
-                this.spawnCooldown = 1000; // 1 second
+                this.spawnCooldown = 2000; // 2 second
                 // Crossbow: Long range with high critical chance
                 this.criticalChance = 25; // 25% chance to crit (high precision weapon)
                 this.criticalMultiplier = 2.2; // Good crit multiplier
@@ -130,7 +130,7 @@ class Fighter {
                 this.attackRange = 50;
                 this.attackCooldown = 800; // 0.8 seconds
                 this.spawnCost = 4;
-                this.spawnCooldown = 1000; // 1 second
+                this.spawnCooldown = 2000; // 2 second
                 // Assassin: High critical chance, good evasion
                 this.criticalChance = 35; // 35% chance to crit
                 this.criticalMultiplier = 3.0; // Very high crit multiplier
@@ -143,11 +143,11 @@ class Fighter {
                 this.attackRange = 50;
                 this.attackCooldown = 1100; // 1.1 seconds
                 this.spawnCost = 4;
-                this.spawnCooldown = 1000; // 1 second
+                this.spawnCooldown = 2000; // 2 second
                 // Paladin: Balanced stats with heal aura
                 this.criticalChance = 12; // 12% chance to crit
                 this.criticalMultiplier = 2.0;
-                this.healAura = 8; // 8 HP per second to nearby allies
+                this.healAura = 10; // 10 HP per second to nearby allies
                 this.evasion = 8; // Some evasion
                 break;
             case 'healer':
@@ -157,9 +157,9 @@ class Fighter {
                 this.attackRange = 150;
                 this.attackCooldown = 1400; // 1.4 seconds
                 this.spawnCost = 3;
-                this.spawnCooldown = 1000; // 1 second
+                this.spawnCooldown = 2000; // 2 second
                 // Healer: Ranged attack, low stats, heal aura
-                this.healAura = 12; // 12 HP per second to nearby allies
+                this.healAura = 15; // 15 HP per second to nearby allies
                 this.evasion = 15; // Good evasion for support unit
                 break;
             case 'berserker':
@@ -169,7 +169,7 @@ class Fighter {
                 this.attackRange = 45;
                 this.attackCooldown = 600; // 0.6 seconds (very fast)
                 this.spawnCost = 5;
-                this.spawnCooldown = 1000; // 1 second
+                this.spawnCooldown = 2000; // 2 second
                 // Berserker: High attack speed, high lifesteal, high movement speed, low hp
                 this.criticalChance = 15; // 15% chance to crit
                 this.criticalMultiplier = 2.5;
@@ -2338,23 +2338,74 @@ class Game {
         ];
     }
 
+    getFighterProperties(type) {
+        // Create a temporary fighter instance to get its properties
+        const tempFighter = new Fighter('temp', type, 0, 0);
+        return {
+            type: type,
+            icon: this.getFighterIcon(type),
+            name: this.getFighterName(type),
+            desc: this.getFighterDescription(type),
+            cost: tempFighter.spawnCost,
+            cooldown: tempFighter.spawnCooldown / 1000 // Convert from milliseconds to seconds
+        };
+    }
+
+    getFighterIcon(type) {
+        const icons = {
+            'warrior': '⚔️',
+            'archer': '🏹',
+            'tank': '🛡️',
+            'troll': '👹',
+            'crossbow': '🏹',
+            'assassin': '🗡️',
+            'paladin': '⚜️',
+            'healer': '💊',
+            'berserker': '⚔️'
+        };
+        return icons[type] || '❓';
+    }
+
+    getFighterName(type) {
+        const names = {
+            'warrior': 'Warrior',
+            'archer': 'Archer',
+            'tank': 'Tank',
+            'troll': 'Troll',
+            'crossbow': 'Crossbow',
+            'assassin': 'Assassin',
+            'paladin': 'Paladin',
+            'healer': 'Healer',
+            'berserker': 'Berserker'
+        };
+        return names[type] || 'Unknown';
+    }
+
+    getFighterDescription(type) {
+        const descriptions = {
+            'warrior': 'Balanced fighter with critical strikes',
+            'archer': 'Fast ranged fighter with high evasion',
+            'tank': 'Slow but very durable fighter',
+            'troll': 'Strong fighter with lifesteal',
+            'crossbow': 'Long range with high critical chance',
+            'assassin': 'High critical chance and evasion',
+            'paladin': 'Balanced with heal aura',
+            'healer': 'Ranged support with heal aura',
+            'berserker': 'Fast attack speed with lifesteal'
+        };
+        return descriptions[type] || 'Unknown fighter type';
+    }
+
     setupFighterSelection() {
         // Show the fighter selection modal
         const modal = document.getElementById('fighter-selection-modal');
         modal.style.display = 'block';
 
-        // Define all available fighters with spawn properties
-        const allFighters = [
-            { type: 'warrior', icon: '⚔️', name: 'Warrior', desc: 'Balanced fighter with critical strikes', cost: 2, cooldown: 1 },
-            { type: 'archer', icon: '🏹', name: 'Archer', desc: 'Fast ranged fighter with high evasion', cost: 2, cooldown: 1 },
-            { type: 'tank', icon: '🛡️', name: 'Tank', desc: 'Slow but very durable fighter', cost: 3, cooldown: 1 },
-            { type: 'troll', icon: '👹', name: 'Troll', desc: 'Strong fighter with lifesteal', cost: 5, cooldown: 3 },
-            { type: 'crossbow', icon: '🏹', name: 'Crossbow', desc: 'Long range with high critical chance', cost: 3, cooldown: 1 },
-            { type: 'assassin', icon: '🗡️', name: 'Assassin', desc: 'High critical chance and evasion', cost: 4, cooldown: 1 },
-            { type: 'paladin', icon: '⚜️', name: 'Paladin', desc: 'Balanced with heal aura', cost: 4, cooldown: 1 },
-            { type: 'healer', icon: '💊', name: 'Healer', desc: 'Ranged support with heal aura', cost: 3, cooldown: 1 },
-            { type: 'berserker', icon: '⚔️', name: 'Berserker', desc: 'Fast attack speed with lifesteal', cost: 5, cooldown: 1 }
-        ];
+        // Define all available fighter types
+        const fighterTypes = ['warrior', 'archer', 'tank', 'troll', 'crossbow', 'assassin', 'paladin', 'healer', 'berserker'];
+
+        // Get fighter properties from Fighter class
+        const allFighters = fighterTypes.map(type => this.getFighterProperties(type));
 
         // Initialize turn-based selection
         this.currentSelectionTurn = 'blue';
