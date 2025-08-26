@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fighter Sprite Generator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f0f0f0;
+        }
+
+        .sprite-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        .sprite-item {
+            background: white;
+            padding: 10px;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        canvas {
+            border: 1px solid #ccc;
+            background: #fff;
+        }
+
+        button {
+            background: #4ecdc4;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+
+        button:hover {
+            background: #44a08d;
+        }
+
+        .download-all {
+            background: #ff6b6b;
+            font-size: 16px;
+            padding: 15px 30px;
+        }
+
+        .download-all:hover {
+            background: #e55a5a;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Fighter Sprite Generator</h1>
+    <p>This tool generates simple placeholder sprites for your 2D fighting game. Click "Generate All Sprites" to create
+        them, then download them individually or all at once.</p>
+
+    <button class="download-all" onclick="generateAllSprites()">Generate All Sprites</button>
+    <button class="download-all" onclick="downloadAllSprites()">Download All Sprites</button>
+
+    <div class="sprite-container" id="spriteContainer">
+        <!-- Sprites will be generated here -->
+    </div>
+
+    <script>
+        const fighters = [
+            { type: 'warrior', name: 'Warrior' },
+            { type: 'archer', name: 'Archer' },
+            { type: 'tank', name: 'Tank' }
+        ];
+
+        const teams = ['blue', 'red'];
+        const sprites = {};
+
+        function generateSprite(type, team) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 32;
+            canvas.height = 32;
+            const ctx = canvas.getContext('2d');
+
+            // Background
+            ctx.fillStyle = team === 'blue' ? '#4ecdc4' : '#ff6b6b';
+            ctx.fillRect(0, 0, 32, 32);
+
+            // Fighter type specific design
+            switch (type) {
+                case 'warrior':
+                    // Sword and shield design
+                    ctx.fillStyle = '#fff';
+                    ctx.fillRect(8, 8, 16, 16); // Body
+                    ctx.fillStyle = '#333';
+                    ctx.fillRect(12, 12, 8, 8); // Shield
+                    ctx.fillRect(20, 16, 2, 4); // Sword
+                    break;
+
+                case 'archer':
+                    // Bow design
+                    ctx.fillStyle = '#fff';
+                    ctx.fillRect(8, 8, 16, 16); // Body
+                    ctx.fillStyle = '#8B4513';
+                    ctx.fillRect(6, 14, 20, 4); // Bow
+                    ctx.fillStyle = '#333';
+                    ctx.fillRect(14, 12, 4, 8); // Arrow
+                    break;
+
+                case 'tank':
+                    // Armor design
+                    ctx.fillStyle = '#fff';
+                    ctx.fillRect(8, 8, 16, 16); // Body
+                    ctx.fillStyle = '#666';
+                    ctx.fillRect(6, 6, 20, 20); // Armor outline
+                    ctx.fillStyle = '#333';
+                    ctx.fillRect(10, 10, 12, 12); // Armor plates
+                    break;
+            }
+
+            return canvas;
+        }
+
+        function generateAllSprites() {
+            const container = document.getElementById('spriteContainer');
+            container.innerHTML = '';
+
+            fighters.forEach(fighter => {
+                teams.forEach(team => {
+                    const spriteItem = document.createElement('div');
+                    spriteItem.className = 'sprite-item';
+
+                    const canvas = generateSprite(fighter.type, team);
+                    const filename = `${fighter.type}_${team}.png`;
+
+                    spriteItem.innerHTML = `
+                        <h3>${fighter.name} (${team})</h3>
+                        <canvas id="${filename.replace('.png', '')}" width="32" height="32"></canvas>
+                        <br><br>
+                        <button onclick="downloadSprite('${filename}')">Download ${filename}</button>
+                    `;
+
+                    container.appendChild(spriteItem);
+
+                    // Copy the generated sprite to the display canvas
+                    const displayCanvas = document.getElementById(filename.replace('.png', ''));
+                    const displayCtx = displayCanvas.getContext('2d');
+                    displayCtx.drawImage(canvas, 0, 0);
+
+                    // Store the sprite data
+                    sprites[filename] = canvas;
+                });
+            });
+        }
+
+        function downloadSprite(filename) {
+            if (!sprites[filename]) {
+                alert('Please generate sprites first!');
+                return;
+            }
+
+            const canvas = sprites[filename];
+            const link = document.createElement('a');
+            link.download = filename;
+            link.href = canvas.toDataURL();
+            link.click();
+        }
+
+        function downloadAllSprites() {
+            if (Object.keys(sprites).length === 0) {
+                alert('Please generate sprites first!');
+                return;
+            }
+
+            Object.keys(sprites).forEach(filename => {
+                setTimeout(() => downloadSprite(filename), 100);
+            });
+        }
+
+        // Generate sprites on page load
+        window.onload = generateAllSprites;
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2D Fighting Arena</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="game-container">
+        <div class="game-area">
+            <canvas id="gameCanvas" width="1200" height="600"></canvas>
+        </div>
+
+        <div class="controls-panel">
+            <div class="control-group">
+                <h3>Blue Team</h3>
+                <div class="fighter-buttons">
+                    <button class="fighter-btn blue-team" data-side="blue" data-type="warrior">
+                        <span class="fighter-icon">⚔️</span>
+                        <span class="fighter-name">Warrior</span>
+                        <span class="fighter-desc">Balanced (Q)</span>
+                        <span class="fighter-stats">
+                            <span class="cost">💰 2</span>
+                            <span class="cooldown">⏱️ 1s</span>
+                        </span>
+                    </button>
+                    <button class="fighter-btn blue-team" data-side="blue" data-type="archer">
+                        <span class="fighter-icon">🏹</span>
+                        <span class="fighter-name">Archer</span>
+                        <span class="fighter-desc">Fast, Low HP (W)</span>
+                        <span class="fighter-stats">
+                            <span class="cost">💰 2</span>
+                            <span class="cooldown">⏱️ 1s</span>
+                        </span>
+                    </button>
+                    <button class="fighter-btn blue-team" data-side="blue" data-type="tank">
+                        <span class="fighter-icon">🛡️</span>
+                        <span class="fighter-name">Tank</span>
+                        <span class="fighter-desc">Slow, High HP (E)</span>
+                        <span class="fighter-stats">
+                            <span class="cost">💰 3</span>
+                            <span class="cooldown">⏱️ 1s</span>
+                        </span>
+                    </button>
+                    <button class="fighter-btn blue-team" data-side="blue" data-type="troll">
+                        <span class="fighter-icon">👹</span>
+                        <span class="fighter-name">Troll</span>
+                        <span class="fighter-desc">Strong, Fast (A)</span>
+                        <span class="fighter-stats">
+                            <span class="cost">💰 5</span>
+                            <span class="cooldown">⏱️ 3s</span>
+                        </span>
+                    </button>
+
+                    <button class="fighter-btn blue-team" data-side="blue" data-type="crossbow">
+                        <span class="fighter-icon">🏹</span>
+                        <span class="fighter-name">Crossbow</span>
+                        <span class="fighter-desc">Long Range (S)</span>
+                        <span class="fighter-stats">
+                            <span class="cost">💰 3</span>
+                            <span class="cooldown">⏱️ 1s</span>
+                        </span>
+                    </button>
+                    <button class="fighter-btn blue-team" data-side="blue" data-type="assassin">
+                        <span class="fighter-icon">🗡️</span>
+                        <span class="fighter-name">Assassin</span>
+                        <span class="fighter-desc">High Crit, Evasion</span>
+                        <span class="fighter-stats">
+                            <span class="cost">💰 4</span>
+                            <span class="cooldown">⏱️ 1s</span>
+                        </span>
+                    </button>
+                    <button class="fighter-btn blue-team" data-side="blue" data-type="paladin">
+                        <span class="fighter-icon">⚜️</span>
+                        <span class="fighter-name">Paladin</span>
+                        <span class="fighter-desc">Balanced, Heal Aura</span>
+                        <span class="fighter-stats">
+                            <span class="cost">💰 4</span>
+                            <span class="cooldown">⏱️ 1s</span>
+                        </span>
+                    </button>
+                    <button class="fighter-btn blue-team" data-side="blue" data-type="healer">
+                        <span class="fighter-icon">💊</span>
+                        <span class="fighter-name">Healer</span>
+                        <span class="fighter-desc">Ranged, Heal Aura</span>
+                        <span class="fighter-stats">
+                            <span class="cost">💰 3</span>
+                            <span class="cooldown">⏱️ 1s</span>
+                        </span>
+                    </button>
+                    <button class="fighter-btn blue-team" data-side="blue" data-type="berserker">
+                        <span class="fighter-icon">⚔️</span>
+                        <span class="fighter-name">Berserker</span>
+                        <span class="fighter-desc">Fast Attack, Lifesteal</span>
+                        <span class="fighter-stats">
+                            <span class="cost">💰 5</span>
+                            <span class="cooldown">⏱️ 1s</span>
+                        </span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="team-info">
+                <div class="team blue-team">
+                    <h4>Blue Team</h4>
+                    <div class="team-stats">
+                        <span>Fighters: <span id="blue-count">0</span>/30</span>
+                        <span>Gold: <span id="blue-gold">0</span> 💰</span>
+                        <span id="blue-streak"></span>
+                    </div>
+                </div>
+                <div class="team red-team">
+                    <h4>Red Team</h4>
+                    <div class="team-stats">
+                        <span>Fighters: <span id="red-count">0</span>/30</span>
+                        <span>Gold: <span id="red-gold">0</span> 💰</span>
+                        <span id="red-streak"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <h3>Red Team</h3>
+                <div class="fighter-buttons">
+                    <button class="fighter-btn red-team" data-side="red" data-type="warrior">
+                        <span class="fighter-icon">⚔️</span>
+                        <span class="fighter-name">Warrior</span>
+                        <span class="fighter-desc">Balanced (I)</span>
+                        <span class="fighter-stats">
+                            <span class="cost">💰 2</span>
+                            <span class="cooldown">⏱️ 1s</span>
+                        </span>
+                    </button>
+                    <button class="fighter-btn red-team" data-side="red" data-type="archer">
+                        <span class="fighter-icon">🏹</span>
+                        <span class="fighter-name">Archer</span>
+                        <span class="fighter-desc">Fast, Low HP (O)</span>
+                        <span class="fighter-stats">
+                            <span class="cost">💰 2</span>
+                            <span class="cooldown">⏱️ 1s</span>
+                        </span>
+                    </button>
+                    <button class="fighter-btn red-team" data-side="red" data-type="tank">
+                        <span class="fighter-icon">🛡️</span>
+                        <span class="fighter-name">Tank</span>
+                        <span class="fighter-desc">Slow, High HP (P)</span>
+                        <span class="fighter-stats">
+                            <span class="cost">💰 3</span>
+                            <span class="cooldown">⏱️ 1s</span>
+                        </span>
+                    </button>
+                    <button class="fighter-btn red-team" data-side="red" data-type="troll">
+                        <span class="fighter-icon">👹</span>
+                        <span class="fighter-name">Troll</span>
+                        <span class="fighter-desc">Strong, Fast (K)</span>
+                        <span class="fighter-stats">
+                            <span class="cost">💰 5</span>
+                            <span class="cooldown">⏱️ 3s</span>
+                        </span>
+                    </button>
+                    <button class="fighter-btn red-team" data-side="red" data-type="crossbow">
+                        <span class="fighter-icon">🏹</span>
+                        <span class="fighter-name">Crossbow</span>
+                        <span class="fighter-desc">Long Range (L)</span>
+                        <span class="fighter-stats">
+                            <span class="cost">💰 3</span>
+                            <span class="cooldown">⏱️ 1s</span>
+                        </span>
+                    </button>
+                    <button class="fighter-btn red-team" data-side="red" data-type="assassin">
+                        <span class="fighter-icon">🗡️</span>
+                        <span class="fighter-name">Assassin</span>
+                        <span class="fighter-desc">High Crit, Evasion</span>
+                        <span class="fighter-stats">
+                            <span class="cost">💰 4</span>
+                            <span class="cooldown">⏱️ 1s</span>
+                        </span>
+                    </button>
+                    <button class="fighter-btn red-team" data-side="red" data-type="paladin">
+                        <span class="fighter-icon">⚜️</span>
+                        <span class="fighter-name">Paladin</span>
+                        <span class="fighter-desc">Balanced, Heal Aura</span>
+                        <span class="fighter-stats">
+                            <span class="cost">💰 4</span>
+                            <span class="cooldown">⏱️ 1s</span>
+                        </span>
+                    </button>
+                    <button class="fighter-btn red-team" data-side="red" data-type="healer">
+                        <span class="fighter-icon">💊</span>
+                        <span class="fighter-name">Healer</span>
+                        <span class="fighter-desc">Ranged, Heal Aura</span>
+                        <span class="fighter-stats">
+                            <span class="cost">💰 3</span>
+                            <span class="cooldown">⏱️ 1s</span>
+                        </span>
+                    </button>
+                    <button class="fighter-btn red-team" data-side="red" data-type="berserker">
+                        <span class="fighter-icon">⚔️</span>
+                        <span class="fighter-name">Berserker</span>
+                        <span class="fighter-desc">Fast Attack, Lifesteal</span>
+                        <span class="fighter-stats">
+                            <span class="cost">💰 5</span>
+                            <span class="cooldown">⏱️ 1s</span>
+                        </span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Fighter Selection Modal -->
+    <div id="fighter-selection-modal" class="modal">
+        <div class="modal-content">
+            <h2>Select Your 5 Fighters</h2>
+            <p id="selection-instruction">Blue Team's turn - Choose 5 fighters</p>
+
+            <!-- Turn indicator -->
+            <div class="turn-indicator">
+                <div class="turn-step blue-turn active" id="blue-turn-indicator">
+                    <span class="turn-icon">🔵</span>
+                    <span class="turn-text">Blue Team</span>
+                </div>
+                <div class="turn-step red-turn" id="red-turn-indicator">
+                    <span class="turn-icon">🔴</span>
+                    <span class="turn-text">Red Team</span>
+                </div>
+            </div>
+
+            <!-- Blue Team Selection -->
+            <div class="team-selection active" id="blue-team-selection">
+                <h3>Blue Team Selection</h3>
+                <div class="fighter-grid" id="blue-fighter-grid">
+                    <!-- Fighter options will be populated by JavaScript -->
+                </div>
+                <div class="selection-status" id="blue-selection-status">Selected: 0/5</div>
+                <button id="blue-next-btn" class="next-btn" disabled>Next: Red Team</button>
+            </div>
+
+            <!-- Red Team Selection -->
+            <div class="team-selection" id="red-team-selection">
+                <h3>Red Team Selection</h3>
+                <div class="fighter-grid" id="red-fighter-grid">
+                    <!-- Fighter options will be populated by JavaScript -->
+                </div>
+                <div class="selection-status" id="red-selection-status">Selected: 0/5</div>
+                <div class="selection-buttons">
+                    <button id="red-back-btn" class="back-btn">Back: Blue Team</button>
+                    <button id="start-battle-btn" class="start-battle-btn" disabled>Start Battle</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="game.js"></script>
+</body>
+
+</html>
