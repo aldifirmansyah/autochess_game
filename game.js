@@ -2090,9 +2090,13 @@ class Fighter {
             { dx: -gridSize, dy: -gridSize } // Up-Left
         ];
 
+        // Round input coordinates to ensure we work with integers
+        const roundedX = Math.round(x / gridSize) * gridSize;
+        const roundedY = Math.round(y / gridSize) * gridSize;
+
         for (let dir of directions) {
-            const newX = x + dir.dx;
-            const newY = y + dir.dy;
+            const newX = roundedX + dir.dx;
+            const newY = roundedY + dir.dy;
 
             // Check bounds
             if (newX >= minX && newX <= maxX && newY >= minY && newY <= maxY) {
