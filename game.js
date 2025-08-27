@@ -89,7 +89,7 @@ class Fighter {
                 break;
             case 'tank':
                 this.speed = 0.7;
-                this.maxHealth = 350;
+                this.maxHealth = 400;
                 this.attackDamage = 18;
                 this.attackRange = 45;
                 this.attackCooldown = 1000; // 1 second
