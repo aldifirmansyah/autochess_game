@@ -3293,7 +3293,7 @@ class Game {
         }
 
         // Debug: Draw path dots for all fighters
-        // this.drawAllFighterPaths()drawAllFighterPaths;
+        // this.drawAllFighterPaths();
 
         // Draw spawn areas
         this.drawSpawnAreas();
