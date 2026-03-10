@@ -2366,7 +2366,7 @@ class AIController {
     think(currentTime) {
         if (currentTime - this.lastThinkTime < this.thinkInterval) return;
         this.lastThinkTime = currentTime;
-        this.thinkInterval = 1800 + Math.random() * 1200;
+        this.thinkInterval = 600 + Math.random() * 400;
         this.decideSpawn();
     }
 
@@ -2432,8 +2432,17 @@ class AIController {
             toSpawn = this.pickAffordable([...order, ...this.selectedFighters]);
         }
 
-        if (toSpawn) {
+        // Spend as much gold as possible this cycle — keep spawning until nothing is affordable
+        let spawned = 0;
+        while (toSpawn && spawned < 3) {
             game.spawnFighter('red', toSpawn);
+            spawned++;
+            // Re-evaluate after each spawn (gold/cooldowns/count may have changed)
+            toSpawn = this.pickAffordable(
+                redHealth < 400 ? ['tank', 'paladin', 'healer', ...this.selectedFighters] :
+                blueHealth < 500 && game.redCount <= game.blueCount ? ['berserker', 'assassin', 'troll', ...this.selectedFighters] :
+                this.selectedFighters
+            );
         }
     }
 }
