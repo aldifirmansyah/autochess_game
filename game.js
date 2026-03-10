@@ -32,11 +32,13 @@ class Fighter {
         this.pathfindingCooldown = 0;
         this.lastPathfindingTime = 0;
         this.pathfindingInterval = 30; // Recalculate path every 30 frames
+        this.lastPathTarget = null;
 
         // Stuck detection and prevention
         this.lastPosition = { x: x, y: y };
         this.stuckTime = 0;
-        this.stuckThreshold = 100; // Frames to consider stuck
+        this.stuckThreshold = 3; // Number of 60-frame intervals without movement = stuck
+        this.stuckCheckFrames = 0;
         this.lastMoveTime = 0;
         this.escapeDirection = null;
         this.escapeTimer = 0;
@@ -63,118 +65,134 @@ class Fighter {
     setupStats() {
         switch (this.type) {
             case 'warrior':
-                this.speed = 1;
-                this.maxHealth = 150;
-                this.attackDamage = 20;
+                // IDENTITY: Melee crit gambler — every swing is a gamble.
+                // EXTREME: Highest crit chance in game (40%), solid multiplier.
+                // WEAK: No defense (no evasion, no lifesteal), fragile HP.
+                this.speed = 1.1;
+                this.maxHealth = 130;
+                this.attackDamage = 18;
                 this.attackRange = 45;
-                this.attackCooldown = 1000; // 1 second
+                this.attackCooldown = 1000;
                 this.spawnCost = 2;
-                this.spawnCooldown = 1000; // 1 second
-                // Warrior: Balanced fighter with critical strike ability
-                this.criticalChance = 15; // 15% chance to crit
-                this.criticalMultiplier = 2.0;
+                this.spawnCooldown = 1000;
+                this.criticalChance = 40;
+                this.criticalMultiplier = 2.5;
                 break;
+
             case 'archer':
-                this.speed = 1.2;
-                this.maxHealth = 80;
-                this.attackDamage = 18;
+                // IDENTITY: Ghost — almost impossible to hit.
+                // EXTREME: Highest evasion in game (45%). A ranged unit that almost never takes damage.
+                // WEAK: Lowest damage of any unit, very low HP.
+                this.speed = 1.4;
+                this.maxHealth = 70;
+                this.attackDamage = 16;
                 this.attackRange = 170;
-                this.attackCooldown = 1200; // 1.2 seconds
+                this.attackCooldown = 1200;
                 this.spawnCost = 2;
-                this.spawnCooldown = 1000; // 1 second
-                // Archer: Fast, fragile, with high evasion
-                this.evasion = 25; // 25% chance to dodge
-                this.criticalChance = 20; // 20% chance to crit (high precision)
-                this.criticalMultiplier = 2.5; // Higher crit multiplier
+                this.spawnCooldown = 1000;
+                this.evasion = 45;
                 break;
+
             case 'tank':
-                this.speed = 0.7;
-                this.maxHealth = 400;
-                this.attackDamage = 18;
+                // IDENTITY: Living wall — pure HP absorber, no tricks.
+                // EXTREME: Highest HP in game (600). The only fighter with zero abilities.
+                // WEAK: Near-useless offense, slowest unit, no abilities whatsoever.
+                this.speed = 0.6;
+                this.maxHealth = 600;
+                this.attackDamage = 12;
                 this.attackRange = 45;
-                this.attackCooldown = 1000; // 1 second
+                this.attackCooldown = 1200;
                 this.spawnCost = 3;
-                this.spawnCooldown = 1000; // 1 second
-                // Tank: High HP, low evasion, no special abilities (pure tank)
-                this.evasion = 5; // Very low evasion (slow and heavy)
+                this.spawnCooldown = 1500;
+                // No abilities — the total absence of abilities IS the identity.
                 break;
+
             case 'troll':
-                this.speed = 1.3;
-                this.maxHealth = 500;
+                // IDENTITY: Unkillable brute — heals faster than most units can damage it.
+                // EXTREME: Highest lifesteal in game (55%) on a high-HP, hard-hitting body.
+                // WEAK: Slowest attacker, no crit, no evasion, slow to spawn.
+                this.speed = 1.0;
+                this.maxHealth = 450;
                 this.attackDamage = 45;
                 this.attackRange = 50;
-                this.attackCooldown = 1300; // 1.3 seconds
+                this.attackCooldown = 1400;
                 this.spawnCost = 5;
-                this.spawnCooldown = 3000; // 3 seconds for troll (premium unit)
-                // Troll: Strong fighter with lifesteal ability
-                this.criticalChance = 10; // 10% chance to crit
-                this.lifesteal = 30; // 30% lifesteal (regenerates health from attacks)
+                this.spawnCooldown = 3000;
+                this.lifesteal = 55;
                 break;
+
             case 'crossbow':
-                this.speed = 1.0;
-                this.maxHealth = 100;
-                this.attackDamage = 25;
-                this.attackRange = 220;
-                this.attackCooldown = 1000; // 1 second
-                this.spawnCost = 3;
-                this.spawnCooldown = 2000; // 2 second
-                // Crossbow: Long range with high critical chance
-                this.criticalChance = 25; // 25% chance to crit (high precision weapon)
-                this.criticalMultiplier = 2.2; // Good crit multiplier
-                this.evasion = 10; // Some evasion (ranged fighter)
-                break;
-            case 'assassin':
-                this.speed = 1.4;
-                this.maxHealth = 90;
-                this.attackDamage = 35;
-                this.attackRange = 50;
-                this.attackCooldown = 800; // 0.8 seconds
-                this.spawnCost = 4;
-                this.spawnCooldown = 2000; // 2 second
-                // Assassin: High critical chance, good evasion
-                this.criticalChance = 35; // 35% chance to crit
-                this.criticalMultiplier = 3.0; // Very high crit multiplier
-                this.evasion = 30; // 30% chance to dodge
-                break;
-            case 'paladin':
+                // IDENTITY: Sniper — extreme range and devastating crits on fragile targets.
+                // EXTREME: Longest range in game (260), highest crit multiplier of range units (3.0x).
+                // WEAK: Ultra-fragile (70 HP), slow to reload, no survivability.
                 this.speed = 0.9;
-                this.maxHealth = 200;
-                this.attackDamage = 22;
-                this.attackRange = 50;
-                this.attackCooldown = 1100; // 1.1 seconds
-                this.spawnCost = 4;
-                this.spawnCooldown = 2000; // 2 second
-                // Paladin: Balanced stats with heal aura
-                this.criticalChance = 12; // 12% chance to crit
-                this.criticalMultiplier = 2.0;
-                this.healAura = 10; // 10 HP per second to nearby allies
-                this.evasion = 8; // Some evasion
-                break;
-            case 'healer':
-                this.speed = 0.8;
                 this.maxHealth = 70;
-                this.attackDamage = 12;
-                this.attackRange = 150;
-                this.attackCooldown = 1400; // 1.4 seconds
+                this.attackDamage = 24;
+                this.attackRange = 260;
+                this.attackCooldown = 1400;
                 this.spawnCost = 3;
-                this.spawnCooldown = 2000; // 2 second
-                // Healer: Ranged attack, low stats, heal aura
-                this.healAura = 15; // 15 HP per second to nearby allies
-                this.evasion = 15; // Good evasion for support unit
+                this.spawnCooldown = 1500;
+                this.criticalChance = 30;
+                this.criticalMultiplier = 3.0;
                 break;
+
+            case 'assassin':
+                // IDENTITY: Burst killer — closes instantly and explodes targets with insane crit multiplier.
+                // EXTREME: Fastest movement, highest crit multiplier (4.0x) — a crit nearly one-shots anyone.
+                // WEAK: Very low HP, moderate base damage (only crits make it devastating).
+                this.speed = 1.8;
+                this.maxHealth = 80;
+                this.attackDamage = 20;
+                this.attackRange = 50;
+                this.attackCooldown = 700;
+                this.spawnCost = 4;
+                this.spawnCooldown = 2000;
+                this.criticalChance = 25;
+                this.criticalMultiplier = 4.0;
+                this.evasion = 20;
+                break;
+
+            case 'paladin':
+                // IDENTITY: Holy guardian — sacrifices all offense to sustain the whole team.
+                // EXTREME: Strongest heal aura in game (22 HP/s to all nearby allies).
+                // WEAK: Almost no damage output, slow, purely exists to enable teammates.
+                this.speed = 0.8;
+                this.maxHealth = 300;
+                this.attackDamage = 10;
+                this.attackRange = 50;
+                this.attackCooldown = 1400;
+                this.spawnCost = 4;
+                this.spawnCooldown = 2000;
+                this.healAura = 22;
+                break;
+
+            case 'healer':
+                // IDENTITY: Battle medic — fragile ranged support that survives via evasion.
+                // EXTREME: High evasion (35%) keeps it alive; heal aura sustains the backline.
+                // WEAK: Lowest damage in game, dies in 2 hits — worthless without protection.
+                this.speed = 1.0;
+                this.maxHealth = 65;
+                this.attackDamage = 8;
+                this.attackRange = 150;
+                this.attackCooldown = 1600;
+                this.spawnCost = 3;
+                this.spawnCooldown = 1500;
+                this.healAura = 14;
+                this.evasion = 35;
+                break;
+
             case 'berserker':
-                this.speed = 1.6;
-                this.maxHealth = 120;
-                this.attackDamage = 28;
+                // IDENTITY: Speed demon — insane attack speed, sustained by lifesteal alone.
+                // EXTREME: Fastest attack cooldown in game (0.4s = 60 DPS). No other unit comes close.
+                // WEAK: Tiny HP pool (100), no crit, no evasion — dies instantly if lifesteal is outpaced.
+                this.speed = 1.8;
+                this.maxHealth = 100;
+                this.attackDamage = 24;
                 this.attackRange = 45;
-                this.attackCooldown = 600; // 0.6 seconds (very fast)
+                this.attackCooldown = 400;
                 this.spawnCost = 5;
-                this.spawnCooldown = 2000; // 2 second
-                // Berserker: High attack speed, high lifesteal, high movement speed, low hp
-                this.criticalChance = 15; // 15% chance to crit
-                this.criticalMultiplier = 2.5;
-                this.lifesteal = 40; // 40% lifesteal
-                this.evasion = 20; // Good evasion
+                this.spawnCooldown = 2000;
+                this.lifesteal = 40;
                 break;
         }
         this.health = this.maxHealth;
@@ -410,8 +428,10 @@ class Fighter {
             if (!this.wouldCollide(newX, newY, aliveFighters)) {
                 this.x = newX;
                 this.y = newY;
+            } else if (this.trySlidingMovement(vx, vy, aliveFighters)) {
+                // Slid around the blocker — no further action needed
             } else {
-                // If stuck, use escape direction
+                // Sliding also failed — use escape or random movement as last resort
                 if (this.isStuck()) {
                     const escapeDir = this.getEscapeDirection(aliveFighters);
                     if (escapeDir) {
@@ -1886,12 +1906,17 @@ class Fighter {
     }
 
     checkIfStuck() {
-        // Check if fighter has moved significantly
+        // Sample position every 60 frames — per-frame displacement is too small
+        // to distinguish moving fighters from truly stuck ones
+        this.stuckCheckFrames++;
+        if (this.stuckCheckFrames < 60) return;
+        this.stuckCheckFrames = 0;
+
         const dx = this.x - this.lastPosition.x;
         const dy = this.y - this.lastPosition.y;
         const distanceMoved = Math.sqrt(dx * dx + dy * dy);
 
-        if (distanceMoved < 30) { // Very small movement
+        if (distanceMoved < 20) {
             this.stuckTime++;
         } else {
             this.stuckTime = 0;
@@ -1899,7 +1924,6 @@ class Fighter {
             this.escapeTimer = 0;
         }
 
-        // Update last position
         this.lastPosition.x = this.x;
         this.lastPosition.y = this.y;
     }
@@ -1976,6 +2000,12 @@ class Fighter {
     findPathToTarget(target, aliveFighters) {
         const currentTime = Date.now();
 
+        // Force recalculation if the target changed
+        if (this.lastPathTarget !== target) {
+            this.lastPathTarget = target;
+            this.lastPathfindingTime = 0;
+        }
+
         // Only recalculate path periodically to avoid performance issues
         if (currentTime - this.lastPathfindingTime < this.pathfindingInterval * 16) { // 16ms per frame
             return this.path.length > 0;
@@ -1988,8 +2018,29 @@ class Fighter {
         const endX = Math.floor(target.x / 10) * 10;
         const endY = Math.floor(target.y / 10) * 10;
 
-        const path = this.dijkstraPathfinding(startX, startY, endX, endY, aliveFighters);
+        const path = this.aStarPathfinding(startX, startY, endX, endY);
         if (path && path.length > 0) {
+            // Path hysteresis: if we're already partway through a path, don't switch to a new
+            // one that goes in a significantly different direction. This stops the fighter from
+            // oscillating when A* alternates between two near-equal routes (e.g. above/below a tree).
+            if (this.path.length > 0 && this.pathIndex > 0 && this.pathIndex < this.path.length) {
+                const curWp  = this.path[this.pathIndex];
+                const newWp  = path.length > 1 ? path[1] : path[0];
+                const curDx  = curWp.x - this.x;
+                const curDy  = curWp.y - this.y;
+                const newDx  = newWp.x - this.x;
+                const newDy  = newWp.y - this.y;
+                const curLen = Math.sqrt(curDx * curDx + curDy * curDy) || 1;
+                const newLen = Math.sqrt(newDx * newDx + newDy * newDy) || 1;
+                const dot    = (curDx * newDx + curDy * newDy) / (curLen * newLen);
+
+                if (dot < -0.3) {
+                    // New path heads in the opposite direction — keep the current path.
+                    // The 30-frame cooldown ensures we re-evaluate again soon.
+                    return true;
+                }
+            }
+
             this.path = path;
             this.pathIndex = 0;
             return true;
@@ -2000,57 +2051,97 @@ class Fighter {
         }
     }
 
-    dijkstraPathfinding(startX, startY, endX, endY, aliveFighters) {
-        // Create grid bounds
-        const minX = Math.max(0, Math.min(startX, endX) - 100);
-        const maxX = Math.min(1200, Math.max(startX, endX) + 100);
-        const minY = Math.max(0, Math.min(startY, endY) - 100);
-        const maxY = Math.min(600, Math.max(startY, endY) + 100);
+    aStarPathfinding(startX, startY, endX, endY) {
+        const gridSize = 10;
+        const key = (x, y) => `${x},${y}`;
+        const heuristic = (x, y) => Math.sqrt((x - endX) ** 2 + (y - endY) ** 2);
 
-        const gridWidth = 1200 + 1;
-        const gridHeight = 600 + 1;
-        const cameFrom = [];
-        const visited = new Set();
-        for (let x = 0; x < gridWidth; x++) {
-            cameFrom[x] = [];
-            for (let y = 0; y < gridHeight; y++) {
-                cameFrom[x][y] = null;
+        const openSet = [{ x: startX, y: startY, f: heuristic(startX, startY), g: 0 }];
+        const cameFrom = new Map();
+        const gScore = new Map([[key(startX, startY), 0]]);
+        const closedSet = new Set();
+
+        // Limit nodes explored to keep pathfinding fast.
+        // 3000 nodes covers ~55x55 grid cells = ~550x550px, enough for long detours.
+        const maxNodes = 3000;
+        let nodesExplored = 0;
+
+        const directions = [
+            { dx: 0,         dy: -gridSize, cost: 1        },
+            { dx: gridSize,  dy: 0,         cost: 1        },
+            { dx: 0,         dy: gridSize,  cost: 1        },
+            { dx: -gridSize, dy: 0,         cost: 1        },
+            { dx: gridSize,  dy: -gridSize, cost: Math.SQRT2 },
+            { dx: gridSize,  dy: gridSize,  cost: Math.SQRT2 },
+            { dx: -gridSize, dy: gridSize,  cost: Math.SQRT2 },
+            { dx: -gridSize, dy: -gridSize, cost: Math.SQRT2 },
+        ];
+
+        while (openSet.length > 0 && nodesExplored < maxNodes) {
+            // Pick the open node with the lowest f score
+            let bestIdx = 0;
+            for (let i = 1; i < openSet.length; i++) {
+                if (openSet[i].f < openSet[bestIdx].f) bestIdx = i;
             }
-        }
-        const queue = [];
-        queue.push({ x: startX, y: startY, distance: 0 });
-        cameFrom[startX][startY] = { x: startX, y: startY };
-        visited.add(`${startX},${startY}`);
+            const current = openSet.splice(bestIdx, 1)[0];
+            nodesExplored++;
 
-        while (queue.length > 0) {
-            const current = queue.shift();
-            if (Math.abs(current.x - endX) < this.attackRange && Math.abs(current.y - endY) < this.attackRange) {
-                // quick fix for range fighters
-                if (this.attackRange > 100 && this.hasLineOfSight(current.x, current.y, endX, endY, aliveFighters)) {
-                    return this.reconstructPath(cameFrom, current.x, current.y);
-                } else {
-                    return this.reconstructPath(cameFrom, current.x, current.y);
-                }
+            // Stop when within attack range of the target
+            const cdx = current.x - endX;
+            const cdy = current.y - endY;
+            if (Math.sqrt(cdx * cdx + cdy * cdy) <= Math.max(this.attackRange, gridSize * 2)) {
+                return this.reconstructPathAStar(cameFrom, current.x, current.y, startX, startY);
             }
 
-            const neighbors = this.getNeighbors(current.x, current.y, 10, minX, maxX, minY, maxY);
-            for (let neighbor of neighbors) {
-                const neighborKey = `${neighbor.x},${neighbor.y}`;
-                if (visited.has(neighborKey)) {
-                    continue;
-                }
-                visited.add(neighborKey);
-                if (!this.isPositionReachable(neighbor.x, neighbor.y, aliveFighters)) {
-                    continue;
-                }
-                if (!cameFrom[neighbor.x][neighbor.y]) {
-                    cameFrom[neighbor.x][neighbor.y] = { x: current.x, y: current.y };
-                    queue.push({ x: neighbor.x, y: neighbor.y, distance: current.distance + 1 });
+            const currentKey = key(current.x, current.y);
+            closedSet.add(currentKey);
+
+            for (let dir of directions) {
+                const nx = current.x + dir.dx;
+                const ny = current.y + dir.dy;
+
+                if (nx < 0 || nx > 1200 || ny < 0 || ny > 600) continue;
+
+                const neighborKey = key(nx, ny);
+                if (closedSet.has(neighborKey)) continue;
+                if (!this.isPositionReachable(nx, ny)) continue;
+
+                const tentativeG = current.g + dir.cost;
+                const existingG = gScore.get(neighborKey) ?? Infinity;
+
+                if (tentativeG < existingG) {
+                    cameFrom.set(neighborKey, { x: current.x, y: current.y });
+                    gScore.set(neighborKey, tentativeG);
+                    const f = tentativeG + heuristic(nx, ny);
+
+                    const existingIdx = openSet.findIndex(n => n.x === nx && n.y === ny);
+                    if (existingIdx >= 0) {
+                        openSet[existingIdx].f = f;
+                        openSet[existingIdx].g = tentativeG;
+                    } else {
+                        openSet.push({ x: nx, y: ny, f, g: tentativeG });
+                    }
                 }
             }
         }
 
         return null;
+    }
+
+    reconstructPathAStar(cameFrom, currentX, currentY, startX, startY) {
+        const path = [];
+        let cx = currentX;
+        let cy = currentY;
+
+        while (!(cx === startX && cy === startY)) {
+            path.unshift({ x: cx, y: cy });
+            const prev = cameFrom.get(`${cx},${cy}`);
+            if (!prev) break;
+            cx = prev.x;
+            cy = prev.y;
+        }
+        path.unshift({ x: startX, y: startY });
+        return path;
     }
 
     getNeighbors(x, y, gridSize, minX, maxX, minY, maxY) {
@@ -2083,34 +2174,66 @@ class Fighter {
         return neighbors;
     }
 
-    isPositionReachable(x, y, aliveFighters) {
-        // Check collision with fighters
-        for (let fighter of aliveFighters) {
-            if (fighter !== this) {
+    isPositionReachable(x, y) {
+        // Check static obstacles using the same AABB closest-point formula as wouldCollide,
+        // so the pathfinding grid matches actual movement collision exactly.
+        // (obstacle.x,y is top-left corner, same as wouldCollide and draw)
+        for (let obstacle of window.game.obstacles) {
+            const closestX = Math.max(obstacle.x, Math.min(x, obstacle.x + obstacle.width));
+            const closestY = Math.max(obstacle.y, Math.min(y, obstacle.y + obstacle.height));
+            const dx = x - closestX;
+            const dy = y - closestY;
+            if (Math.sqrt(dx * dx + dy * dy) < this.collisionRadius) return false;
+        }
+
+        // Check teammate positions so A* routes around them instead of through them.
+        // Enemy positions are intentionally excluded — we walk toward enemies (they're targets).
+        for (let fighter of window.game.fighters) {
+            if (fighter !== this && fighter.side === this.side && fighter.state !== 'dead' && fighter.health > 0) {
                 const dx = x - fighter.x;
                 const dy = y - fighter.y;
                 const distance = Math.sqrt(dx * dx + dy * dy);
-                const minDistance = this.collisionRadius + fighter.collisionRadius;
-
-                if (distance < minDistance) {
-                    return false;
-                }
-            }
-        }
-
-        // Check collision with obstacles
-        for (let obstacle of window.game.obstacles) {
-            const dx = x - obstacle.x;
-            const dy = y - obstacle.y;
-            const distance = Math.sqrt(dx * dx + dy * dy);
-            const minDistance = this.collisionRadius + Math.max(obstacle.width, obstacle.height);
-
-            if (distance < minDistance) {
-                return false;
+                if (distance < this.collisionRadius + fighter.collisionRadius) return false;
             }
         }
 
         return true;
+    }
+
+    isBlockedByStaticObstacle(x, y) {
+        // Returns true only if a static obstacle (rock/tree) blocks position x,y.
+        // Used to decide whether to discard the current path or just slide around a dynamic blocker.
+        for (let obstacle of window.game.obstacles) {
+            const closestX = Math.max(obstacle.x, Math.min(x, obstacle.x + obstacle.width));
+            const closestY = Math.max(obstacle.y, Math.min(y, obstacle.y + obstacle.height));
+            const dx = x - closestX;
+            const dy = y - closestY;
+            if (Math.sqrt(dx * dx + dy * dy) < this.collisionRadius) return true;
+        }
+        return false;
+    }
+
+    trySlidingMovement(vx, vy, aliveFighters) {
+        // When the direct move is blocked, try sliding perpendicular to the intended direction.
+        // This lets fighters smoothly go around teammates and other dynamic obstacles.
+        const perpX = -vy;
+        const perpY = vx;
+
+        const candidates = [
+            { x: this.x + perpX,            y: this.y + perpY            }, // slide right
+            { x: this.x - perpX,            y: this.y - perpY            }, // slide left
+            { x: this.x + vx + perpX * 0.7, y: this.y + vy + perpY * 0.7 }, // forward + right
+            { x: this.x + vx - perpX * 0.7, y: this.y + vy - perpY * 0.7 }, // forward + left
+        ];
+
+        for (let pos of candidates) {
+            if (!this.wouldCollide(pos.x, pos.y, aliveFighters)) {
+                this.x = pos.x;
+                this.y = pos.y;
+                return true;
+            }
+        }
+        return false;
     }
 
     // heuristic function removed - not needed for Dijkstra's algorithm
@@ -2141,17 +2264,21 @@ class Fighter {
         }
 
         let targetPoint = this.path[this.pathIndex];
-        const dx = targetPoint.x - this.x;
-        const dy = targetPoint.y - this.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
+        let dx = targetPoint.x - this.x;
+        let dy = targetPoint.y - this.y;
+        let distance = Math.sqrt(dx * dx + dy * dy);
 
-        // If we're close enough to the current path point, move to next
+        // If we're close enough to the current path point, advance to next
         if (distance < 15) {
             this.pathIndex++;
             if (this.pathIndex >= this.path.length) {
                 return false; // Reached end of path
             }
             targetPoint = this.path[this.pathIndex];
+            // Recalculate direction to the new waypoint
+            dx = targetPoint.x - this.x;
+            dy = targetPoint.y - this.y;
+            distance = Math.sqrt(dx * dx + dy * dy);
         }
 
         // Move towards the current path point
@@ -2162,17 +2289,25 @@ class Fighter {
             const newX = this.x + vx;
             const newY = this.y + vy;
 
-            // Check if the move is valid
             if (!this.wouldCollide(newX, newY, aliveFighters)) {
                 this.x = newX;
                 this.y = newY;
                 return true;
-            } else {
-                // Path is blocked, need to recalculate
+            }
+
+            // Blocked — try sliding around the obstacle before giving up on the path.
+            if (this.trySlidingMovement(vx, vy, aliveFighters)) {
+                return true;
+            }
+
+            // Sliding failed. Only discard the path if a static obstacle is the cause.
+            // If it's just a teammate in the way, keep the path and let the next
+            // pathfinding recalculation (every 30 frames) find a route around them.
+            if (this.isBlockedByStaticObstacle(newX, newY)) {
                 this.path = [];
                 this.pathIndex = 0;
-                return false;
             }
+            return false;
         }
 
         return false;
