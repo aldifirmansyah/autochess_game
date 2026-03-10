@@ -48,6 +48,26 @@
         </div>
     </div>
 
+    <!-- Mode Selection Modal -->
+    <div id="mode-selection-modal" class="modal" style="display:block;">
+        <div class="modal-content mode-modal-content">
+            <h2>2D Fighting Arena</h2>
+            <p>Choose your game mode</p>
+            <div class="mode-buttons">
+                <button class="mode-btn pvp-btn" onclick="window.game.selectGameMode('pvp')">
+                    <span class="mode-icon">⚔️</span>
+                    <span class="mode-title">PvP</span>
+                    <span class="mode-desc">Both teams controlled by players</span>
+                </button>
+                <button class="mode-btn ai-btn" onclick="window.game.selectGameMode('ai')">
+                    <span class="mode-icon">🤖</span>
+                    <span class="mode-title">vs AI</span>
+                    <span class="mode-desc">You play Blue, AI controls Red</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Fighter Selection Modal -->
     <div id="fighter-selection-modal" class="modal">
         <div class="modal-content">

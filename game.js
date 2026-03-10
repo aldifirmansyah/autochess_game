@@ -2314,6 +2314,130 @@ class Fighter {
     }
 }
 
+class AIController {
+    constructor(game) {
+        this.game = game;
+        this.strategy = 'balanced';
+        this.selectedFighters = [];
+        this.lastThinkTime = 0;
+        this.thinkInterval = 2000;
+    }
+
+    selectFighters(bluePicks) {
+        const tanks = bluePicks.filter(f => f === 'tank' || f === 'paladin').length;
+        const ranged = bluePicks.filter(f => f === 'archer' || f === 'crossbow' || f === 'healer').length;
+        const melee = bluePicks.filter(f => f === 'warrior' || f === 'berserker' || f === 'troll' || f === 'assassin').length;
+
+        // Counter-pick strategy
+        if (tanks >= 2) {
+            this.strategy = 'burst'; // Burst down tanks with assassin/crossbow
+        } else if (ranged >= 2) {
+            this.strategy = 'rush'; // Rush ranged with fast melee
+        } else if (melee >= 3) {
+            this.strategy = 'fortress'; // Kite heavy melee with ranged+tank
+        } else {
+            const strategies = ['balanced', 'brute', 'burst', 'rush'];
+            this.strategy = strategies[Math.floor(Math.random() * strategies.length)];
+        }
+
+        const strategyFighters = {
+            rush:     ['berserker', 'assassin', 'warrior', 'archer', 'troll'],
+            fortress: ['tank', 'crossbow', 'archer', 'healer', 'paladin'],
+            burst:    ['crossbow', 'assassin', 'berserker', 'warrior', 'archer'],
+            brute:    ['troll', 'tank', 'berserker', 'warrior', 'paladin'],
+            balanced: ['warrior', 'archer', 'paladin', 'crossbow', 'troll']
+        };
+
+        this.selectedFighters = strategyFighters[this.strategy];
+        return this.selectedFighters;
+    }
+
+    getStrategyLabel() {
+        const labels = {
+            rush: '⚡ Rush',
+            fortress: '🏰 Fortress',
+            burst: '💥 Burst',
+            brute: '🐂 Brute',
+            balanced: '⚖️ Balanced'
+        };
+        return labels[this.strategy] || this.strategy;
+    }
+
+    think(currentTime) {
+        if (currentTime - this.lastThinkTime < this.thinkInterval) return;
+        this.lastThinkTime = currentTime;
+        this.thinkInterval = 1800 + Math.random() * 1200;
+        this.decideSpawn();
+    }
+
+    canSpawn(type) {
+        const game = this.game;
+        if (!this.selectedFighters.includes(type)) return false;
+        if (game.redCount >= game.maxFightersPerSide) return false;
+        if ((game.spawnCooldowns.red[type] || 0) > Date.now()) return false;
+        const tempFighter = new Fighter('red', type, 0, 0);
+        if (game.redGold < tempFighter.spawnCost) return false;
+        return true;
+    }
+
+    pickAffordable(types) {
+        for (let type of types) {
+            if (this.canSpawn(type)) return type;
+        }
+        return null;
+    }
+
+    getPhase() {
+        const blueHealth = this.game.bases.blue.health;
+        const redHealth = this.game.bases.red.health;
+        if (blueHealth > 700 && redHealth > 700) return 'early';
+        if (blueHealth < 400 || redHealth < 400) return 'late';
+        return 'mid';
+    }
+
+    decideSpawn() {
+        const game = this.game;
+        const redHealth = game.bases.red.health;
+        const blueHealth = game.bases.blue.health;
+        const redCount = game.redCount;
+        const blueCount = game.blueCount;
+
+        let toSpawn = null;
+
+        if (redHealth < 400) {
+            // Desperate defense: prioritize tanks and healers
+            toSpawn = this.pickAffordable(['tank', 'paladin', 'healer', ...this.selectedFighters]);
+        } else if (blueHealth < 500 && redCount <= blueCount) {
+            // Pressure enemy base with aggressive units
+            toSpawn = this.pickAffordable(['berserker', 'assassin', 'troll', ...this.selectedFighters]);
+        } else if (redCount < blueCount - 2) {
+            // Outnumbered: spawn cheapest available
+            const sorted = [...this.selectedFighters].sort((a, b) => {
+                const ca = new Fighter('red', a, 0, 0).spawnCost;
+                const cb = new Fighter('red', b, 0, 0).spawnCost;
+                return ca - cb;
+            });
+            toSpawn = this.pickAffordable(sorted);
+        } else {
+            // Strategy-based spawning
+            const phase = this.getPhase();
+            const strategyOrder = {
+                rush:     { early: ['berserker', 'assassin', 'warrior'],       mid: ['assassin', 'berserker', 'archer'],    late: ['berserker', 'troll', 'warrior'] },
+                fortress: { early: ['tank', 'archer'],                          mid: ['crossbow', 'healer', 'archer'],       late: ['tank', 'paladin', 'crossbow'] },
+                burst:    { early: ['crossbow', 'assassin'],                    mid: ['crossbow', 'assassin', 'berserker'],  late: ['assassin', 'tank', 'crossbow'] },
+                brute:    { early: ['troll', 'warrior'],                        mid: ['troll', 'berserker', 'paladin'],      late: ['tank', 'troll', 'paladin'] },
+                balanced: { early: ['warrior', 'archer'],                       mid: ['paladin', 'crossbow', 'warrior'],     late: ['troll', 'tank', 'paladin'] }
+            };
+            const order = strategyOrder[this.strategy][phase];
+            toSpawn = this.pickAffordable([...order, ...this.selectedFighters]);
+        }
+
+        if (toSpawn) {
+            game.spawnFighter('red', toSpawn);
+        }
+    }
+}
+
 class Game {
     constructor() {
         this.canvas = document.getElementById('gameCanvas');
@@ -2368,8 +2492,12 @@ class Game {
         // Initialize base projectiles array
         this.baseProjectiles = [];
 
+        // AI mode
+        this.aiMode = false;
+        this.aiController = null;
+
         this.setupObstacles();
-        this.setupFighterSelection();
+        this.setupModeSelection();
         this.setupEventListeners();
         this.gameLoop();
     }
@@ -2457,6 +2585,17 @@ class Game {
         return descriptions[type] || 'Unknown fighter type';
     }
 
+    setupModeSelection() {
+        // Mode modal is shown by default (display:block in HTML)
+        // selectGameMode() is called by the onclick buttons
+    }
+
+    selectGameMode(mode) {
+        this.aiMode = (mode === 'ai');
+        document.getElementById('mode-selection-modal').style.display = 'none';
+        this.setupFighterSelection();
+    }
+
     setupFighterSelection() {
         // Show the fighter selection modal
         const modal = document.getElementById('fighter-selection-modal');
@@ -2474,7 +2613,21 @@ class Game {
 
         // Populate fighter grids
         this.populateFighterGrid('blue', allFighters);
-        this.populateFighterGrid('red', allFighters);
+        if (!this.aiMode) {
+            this.populateFighterGrid('red', allFighters);
+        }
+
+        // In AI mode, change modal title and blue next button label
+        if (this.aiMode) {
+            const h2 = document.querySelector('#fighter-selection-modal h2');
+            if (h2) h2.textContent = 'Select Your 5 Fighters';
+            const instruction = document.getElementById('selection-instruction');
+            if (instruction) instruction.textContent = 'You are Blue — choose your fighters';
+            const redIndicator = document.getElementById('red-turn-indicator');
+            if (redIndicator) redIndicator.style.display = 'none';
+            const blueNextBtn = document.getElementById('blue-next-btn');
+            if (blueNextBtn) blueNextBtn.textContent = 'Start Battle';
+        }
 
         // Setup navigation buttons
         this.setupSelectionNavigation();
@@ -2550,9 +2703,13 @@ class Game {
 
     nextTurn() {
         if (this.currentSelectionTurn === 'blue' && this.selectedFighters.blue.length > 0) {
-            this.currentSelectionTurn = 'red';
-            this.selectionComplete.blue = true;
-            this.updateSelectionUI();
+            if (this.aiMode) {
+                this.startBattle();
+            } else {
+                this.currentSelectionTurn = 'red';
+                this.selectionComplete.blue = true;
+                this.updateSelectionUI();
+            }
         }
     }
 
@@ -2597,7 +2754,7 @@ class Game {
 
         // Update selection status
         this.updateSelectionStatus('blue');
-        this.updateSelectionStatus('red');
+        if (!this.aiMode) this.updateSelectionStatus('red');
 
         // Update navigation buttons
         this.updateNavigationButtons();
@@ -2662,6 +2819,12 @@ class Game {
         const modal = document.getElementById('fighter-selection-modal');
         modal.style.display = 'none';
 
+        // In AI mode, let the AI pick its fighters based on blue's selection
+        if (this.aiMode) {
+            this.aiController = new AIController(this);
+            this.selectedFighters.red = this.aiController.selectFighters(this.selectedFighters.blue);
+        }
+
         // Clean up any existing projectiles
         this.cleanupBaseProjectiles();
 
@@ -2680,7 +2843,7 @@ class Game {
         this.updateTeamCounts();
         this.updateComebackUI();
 
-        console.log('Game started! Selected fighters:', this.selectedFighters);
+        console.log('Game started! Mode:', this.aiMode ? 'vs AI' : 'PvP', '| Selected fighters:', this.selectedFighters);
     }
 
     getFighterInfo(fighterType) {
@@ -2771,39 +2934,52 @@ class Game {
         if (redContainer) {
             redContainer.innerHTML = '';
 
-            this.selectedFighters.red.forEach((fighterType, index) => {
-                // Create a new button instead of cloning
-                const newButton = document.createElement('button');
-                newButton.className = 'fighter-btn red-team';
-                newButton.setAttribute('data-side', 'red');
-                newButton.setAttribute('data-type', fighterType);
-                newButton.style.display = 'flex';
-                newButton.style.opacity = '1';
-                newButton.disabled = false;
-
-                // Get fighter info
-                const fighterInfo = this.getFighterInfo(fighterType);
-
-                // Create temporary fighter to get spawn properties
-                const tempFighter = new Fighter('red', fighterType, 0, 0);
-
-                newButton.innerHTML = `
-                    <span class="fighter-icon">${fighterInfo.icon}</span>
-                    <span class="fighter-name">${fighterInfo.name}</span>
-                    <span class="fighter-desc">(${this.redHotkeys[index].toUpperCase()})</span>
-                    <span class="fighter-stats">
-                        <span class="cost">💰 ${tempFighter.spawnCost}</span>
-                        <span class="cooldown">⏱️ ${tempFighter.spawnCooldown / 1000}s</span>
-                    </span>
+            if (this.aiMode) {
+                // Show AI panel instead of buttons
+                const aiPanel = document.createElement('div');
+                aiPanel.className = 'ai-panel';
+                const strategyLabel = this.aiController ? this.aiController.getStrategyLabel() : '🤖 AI';
+                aiPanel.innerHTML = `
+                    <span class="ai-icon">🤖</span>
+                    <span>AI</span>
+                    <span class="ai-strategy">${strategyLabel}</span>
                 `;
+                redContainer.appendChild(aiPanel);
+            } else {
+                this.selectedFighters.red.forEach((fighterType, index) => {
+                    // Create a new button instead of cloning
+                    const newButton = document.createElement('button');
+                    newButton.className = 'fighter-btn red-team';
+                    newButton.setAttribute('data-side', 'red');
+                    newButton.setAttribute('data-type', fighterType);
+                    newButton.style.display = 'flex';
+                    newButton.style.opacity = '1';
+                    newButton.disabled = false;
 
-                // Add event listener
-                newButton.addEventListener('click', () => {
-                    this.spawnFighter('red', fighterType);
+                    // Get fighter info
+                    const fighterInfo = this.getFighterInfo(fighterType);
+
+                    // Create temporary fighter to get spawn properties
+                    const tempFighter = new Fighter('red', fighterType, 0, 0);
+
+                    newButton.innerHTML = `
+                        <span class="fighter-icon">${fighterInfo.icon}</span>
+                        <span class="fighter-name">${fighterInfo.name}</span>
+                        <span class="fighter-desc">(${this.redHotkeys[index].toUpperCase()})</span>
+                        <span class="fighter-stats">
+                            <span class="cost">💰 ${tempFighter.spawnCost}</span>
+                            <span class="cooldown">⏱️ ${tempFighter.spawnCooldown / 1000}s</span>
+                        </span>
+                    `;
+
+                    // Add event listener
+                    newButton.addEventListener('click', () => {
+                        this.spawnFighter('red', fighterType);
+                    });
+
+                    redContainer.appendChild(newButton);
                 });
-
-                redContainer.appendChild(newButton);
-            });
+            }
         }
 
         // Force a button state update after UI changes
@@ -2834,8 +3010,8 @@ class Game {
                 this.spawnFighter('blue', this.blueFighterMap[key]);
             }
 
-            // Red team shortcuts (i,o,p,k,l)
-            if (this.redFighterMap && this.redFighterMap[key]) {
+            // Red team shortcuts (i,o,p,k,l) — disabled in AI mode
+            if (!this.aiMode && this.redFighterMap && this.redFighterMap[key]) {
                 this.spawnFighter('red', this.redFighterMap[key]);
             }
         });
@@ -3378,6 +3554,11 @@ class Game {
             this.lastGoldTick = currentTime;
 
             // Debug: Log gold updates
+        }
+
+        // AI controller think
+        if (this.aiMode && this.aiController) {
+            this.aiController.think(currentTime);
         }
 
         // Update spawn cooldowns
