@@ -2320,47 +2320,131 @@ class AIController {
         this.strategy = 'balanced';
         this.selectedFighters = [];
         this.lastThinkTime = 0;
-        this.thinkInterval = 2000;
+        this.thinkInterval = 800;
+    }
+
+    // Hardcoded costs — avoids allocating temp Fighter objects in the hot path
+    static spawnCost(type) {
+        const costs = { warrior: 2, archer: 2, tank: 3, troll: 5, crossbow: 3, assassin: 4, paladin: 4, healer: 3, berserker: 5 };
+        return costs[type] ?? 2;
     }
 
     selectFighters(bluePicks) {
-        const tanks = bluePicks.filter(f => f === 'tank' || f === 'paladin').length;
+        const tanks  = bluePicks.filter(f => f === 'tank' || f === 'paladin').length;
         const ranged = bluePicks.filter(f => f === 'archer' || f === 'crossbow' || f === 'healer').length;
-        const melee = bluePicks.filter(f => f === 'warrior' || f === 'berserker' || f === 'troll' || f === 'assassin').length;
+        const melee  = bluePicks.filter(f => f === 'warrior' || f === 'berserker' || f === 'troll' || f === 'assassin').length;
 
-        // Counter-pick strategy
-        if (tanks >= 2) {
-            this.strategy = 'burst'; // Burst down tanks with assassin/crossbow
-        } else if (ranged >= 2) {
-            this.strategy = 'rush'; // Rush ranged with fast melee
-        } else if (melee >= 3) {
-            this.strategy = 'fortress'; // Kite heavy melee with ranged+tank
-        } else {
-            const strategies = ['balanced', 'brute', 'burst', 'rush'];
-            this.strategy = strategies[Math.floor(Math.random() * strategies.length)];
+        if (tanks >= 2)       this.strategy = 'burst';
+        else if (ranged >= 2) this.strategy = 'rush';
+        else if (melee >= 3)  this.strategy = 'fortress';
+        else {
+            const opts = ['balanced', 'brute', 'burst', 'rush'];
+            this.strategy = opts[Math.floor(Math.random() * opts.length)];
         }
 
-        const strategyFighters = {
-            rush:     ['berserker', 'assassin', 'warrior', 'archer', 'troll'],
-            fortress: ['tank', 'crossbow', 'archer', 'healer', 'paladin'],
-            burst:    ['crossbow', 'assassin', 'berserker', 'warrior', 'archer'],
-            brute:    ['troll', 'tank', 'berserker', 'warrior', 'paladin'],
-            balanced: ['warrior', 'archer', 'paladin', 'crossbow', 'troll']
+        // Each roster is built around strong synergies — no weak filler units
+        const rosters = {
+            rush:     ['berserker', 'assassin', 'troll', 'tank', 'crossbow'],
+            fortress: ['tank', 'crossbow', 'healer', 'paladin', 'troll'],
+            burst:    ['crossbow', 'assassin', 'berserker', 'troll', 'paladin'],
+            brute:    ['troll', 'berserker', 'tank', 'paladin', 'crossbow'],
+            balanced: ['crossbow', 'troll', 'paladin', 'tank', 'berserker']
         };
 
-        this.selectedFighters = strategyFighters[this.strategy];
+        this.selectedFighters = rosters[this.strategy];
         return this.selectedFighters;
     }
 
     getStrategyLabel() {
-        const labels = {
-            rush: '⚡ Rush',
-            fortress: '🏰 Fortress',
-            burst: '💥 Burst',
-            brute: '🐂 Brute',
-            balanced: '⚖️ Balanced'
-        };
+        const labels = { rush: '⚡ Rush', fortress: '🏰 Fortress', burst: '💥 Burst', brute: '🐂 Brute', balanced: '⚖️ Balanced' };
         return labels[this.strategy] || this.strategy;
+    }
+
+    canSpawn(type) {
+        const game = this.game;
+        if (!this.selectedFighters.includes(type)) return false;
+        if (game.redCount >= game.maxFightersPerSide) return false;
+        if ((game.spawnCooldowns.red[type] || 0) > Date.now()) return false;
+        if (game.redGold < AIController.spawnCost(type)) return false;
+        return true;
+    }
+
+    pickFrom(types) {
+        for (const type of types) {
+            if (this.canSpawn(type)) return type;
+        }
+        return null;
+    }
+
+    // Read the actual battlefield: who is alive, where the fight is, what enemy types exist
+    analyzeState() {
+        const alive = this.game.fighters.filter(f => f.state !== 'dead');
+        const redAlive  = alive.filter(f => f.side === 'red');
+        const blueAlive = alive.filter(f => f.side === 'blue');
+
+        // Battle line = average X of all alive fighters.
+        // Canvas is 1200px wide. Red spawns right (~x=1100), blue spawns left (~x=100).
+        // Low lineX → battle near blue base (AI pushing). High lineX → near red base (AI defending).
+        let lineX = 600;
+        if (alive.length > 0) lineX = alive.reduce((s, f) => s + f.x, 0) / alive.length;
+
+        // Count durable frontline types red has alive right now
+        const redFrontline = redAlive.filter(f => ['tank', 'paladin', 'troll'].includes(f.type)).length;
+
+        // Count each blue fighter type currently alive
+        const blueTypeCounts = {};
+        for (const f of blueAlive) blueTypeCounts[f.type] = (blueTypeCounts[f.type] || 0) + 1;
+
+        return {
+            lineX,
+            hasFrontline: redFrontline >= 2,
+            blueTypeCounts,
+            redCount:  redAlive.length,
+            blueCount: blueAlive.length
+        };
+    }
+
+    // Score each unit in our roster against what the enemy currently has alive.
+    // Returns our roster sorted best-first.
+    scoreUnits(blueTypeCounts, hasFrontline) {
+        // How well each of our unit types counters a given enemy type.
+        // Scores are multiplied by enemy count (capped at 4).
+        const counterMatrix = {
+            // crossbow: great vs durable enemies it can kite, bad vs units that close the gap
+            crossbow:  { tank: 3, paladin: 3, troll: 2, warrior: 2, healer: 1 },
+            // assassin: hunts down fragile ranged units and supportys
+            assassin:  { crossbow: 3, healer: 3, archer: 3, paladin: 1, warrior: 1 },
+            // berserker: fast attack volume overwhelms evasion-based and support units
+            berserker: { archer: 3, healer: 3, warrior: 2, paladin: 2 },
+            // troll: lifesteal makes it beat anything with low burst, excellent vs sustained fighters
+            troll:     { paladin: 2, tank: 2, warrior: 2, archer: 2, healer: 1 },
+            // tank: absorbs burst and melee rushers
+            tank:      { berserker: 3, assassin: 2, warrior: 2, troll: 1 },
+            // paladin: heal aura directly counters fast-attacking melee
+            paladin:   { assassin: 3, berserker: 3, troll: 1, warrior: 1 },
+            // healer: keeps allies alive against sustained damage dealers
+            healer:    { troll: 2, berserker: 2, warrior: 1, crossbow: 1 },
+            // archer: evasion partially neuters crit-based and melee fighters
+            archer:    { warrior: 2, berserker: 1, tank: 1 },
+            // warrior: crit gambler — situationally useful, not a dedicated counter
+            warrior:   { healer: 1, archer: 1 }
+        };
+
+        const scores = {};
+        for (const myType of this.selectedFighters) {
+            let score = 0;
+            const counters = counterMatrix[myType] || {};
+            for (const [enemyType, value] of Object.entries(counters)) {
+                score += value * Math.min(blueTypeCounts[enemyType] || 0, 4);
+            }
+            // Formation bonus: ranged units are far more effective when red has a durable frontline
+            if (hasFrontline && ['crossbow', 'healer', 'archer'].includes(myType)) score += 5;
+            // Small base so units with no counters in the current enemy composition still register
+            score += 0.5;
+            scores[myType] = score;
+        }
+
+        return this.selectedFighters.slice().sort((a, b) => scores[b] - scores[a]);
     }
 
     think(currentTime) {
@@ -2370,79 +2454,68 @@ class AIController {
         this.decideSpawn();
     }
 
-    canSpawn(type) {
-        const game = this.game;
-        if (!this.selectedFighters.includes(type)) return false;
-        if (game.redCount >= game.maxFightersPerSide) return false;
-        if ((game.spawnCooldowns.red[type] || 0) > Date.now()) return false;
-        const tempFighter = new Fighter('red', type, 0, 0);
-        if (game.redGold < tempFighter.spawnCost) return false;
-        return true;
-    }
-
-    pickAffordable(types) {
-        for (let type of types) {
-            if (this.canSpawn(type)) return type;
-        }
-        return null;
-    }
-
-    getPhase() {
-        const blueHealth = this.game.bases.blue.health;
-        const redHealth = this.game.bases.red.health;
-        if (blueHealth > 700 && redHealth > 700) return 'early';
-        if (blueHealth < 400 || redHealth < 400) return 'late';
-        return 'mid';
-    }
-
     decideSpawn() {
         const game = this.game;
-        const redHealth = game.bases.red.health;
-        const blueHealth = game.bases.blue.health;
-        const redCount = game.redCount;
-        const blueCount = game.blueCount;
+        const state = this.analyzeState();
+        const { lineX, hasFrontline, blueTypeCounts, redCount, blueCount } = state;
 
-        let toSpawn = null;
-
-        if (redHealth < 400) {
-            // Desperate defense: prioritize tanks and healers
-            toSpawn = this.pickAffordable(['tank', 'paladin', 'healer', ...this.selectedFighters]);
-        } else if (blueHealth < 500 && redCount <= blueCount) {
-            // Pressure enemy base with aggressive units
-            toSpawn = this.pickAffordable(['berserker', 'assassin', 'troll', ...this.selectedFighters]);
-        } else if (redCount < blueCount - 2) {
-            // Outnumbered: spawn cheapest available
-            const sorted = [...this.selectedFighters].sort((a, b) => {
-                const ca = new Fighter('red', a, 0, 0).spawnCost;
-                const cb = new Fighter('red', b, 0, 0).spawnCost;
-                return ca - cb;
-            });
-            toSpawn = this.pickAffordable(sorted);
-        } else {
-            // Strategy-based spawning
-            const phase = this.getPhase();
-            const strategyOrder = {
-                rush:     { early: ['berserker', 'assassin', 'warrior'],       mid: ['assassin', 'berserker', 'archer'],    late: ['berserker', 'troll', 'warrior'] },
-                fortress: { early: ['tank', 'archer'],                          mid: ['crossbow', 'healer', 'archer'],       late: ['tank', 'paladin', 'crossbow'] },
-                burst:    { early: ['crossbow', 'assassin'],                    mid: ['crossbow', 'assassin', 'berserker'],  late: ['assassin', 'tank', 'crossbow'] },
-                brute:    { early: ['troll', 'warrior'],                        mid: ['troll', 'berserker', 'paladin'],      late: ['tank', 'troll', 'paladin'] },
-                balanced: { early: ['warrior', 'archer'],                       mid: ['paladin', 'crossbow', 'warrior'],     late: ['troll', 'tank', 'paladin'] }
-            };
-            const order = strategyOrder[this.strategy][phase];
-            toSpawn = this.pickAffordable([...order, ...this.selectedFighters]);
+        // === EMERGENCY: Battle pushed deep into red territory ===
+        if (lineX > 880 || game.bases.red.health < 400) {
+            const order = ['tank', 'paladin', 'troll', 'healer', 'berserker', 'crossbow', 'assassin', 'archer', 'warrior']
+                .filter(t => this.selectedFighters.includes(t));
+            this.spawnMany(order);
+            return;
         }
 
-        // Spend as much gold as possible this cycle — keep spawning until nothing is affordable
+        // === PUSH: Line is well into blue territory — press the advantage ===
+        if (lineX < 350 && redCount >= blueCount) {
+            const order = ['berserker', 'troll', 'assassin', 'crossbow', 'tank', 'paladin', 'healer', 'archer', 'warrior']
+                .filter(t => this.selectedFighters.includes(t));
+            this.spawnMany(order);
+            return;
+        }
+
+        // === RECOVER: Badly outnumbered — spawn anything ready right now ===
+        if (redCount < blueCount - 3) {
+            this.spawnMany([...this.selectedFighters]);
+            return;
+        }
+
+        // === NORMAL PLAY: Score units against live enemy composition and commit ===
+        const priorityOrder = this.scoreUnits(blueTypeCounts, hasFrontline);
+        const desired = priorityOrder[0];
+        if (!desired) return;
+
+        if (this.canSpawn(desired)) {
+            game.spawnFighter('red', desired);
+            // Spend remaining gold on the next-best unit if affordable
+            const next = this.pickFrom(priorityOrder.slice(1));
+            if (next) game.spawnFighter('red', next);
+            return;
+        }
+
+        // Desired unit is not yet ready — calculate how long until it is
+        const cost        = AIController.spawnCost(desired);
+        const now         = Date.now();
+        const cdRemaining = Math.max(0, (game.spawnCooldowns.red[desired] || 0) - now);
+        const goldNeeded  = Math.max(0, cost - game.redGold);
+        const timeToReady = Math.max(cdRemaining, goldNeeded * 1000); // 1 gold/sec
+
+        if (timeToReady <= 3000) {
+            return; // Hold gold — the desired unit is coming within 3 seconds
+        }
+
+        // Too long to wait — spend gold on next-best available unit
+        this.spawnMany(priorityOrder.slice(1));
+    }
+
+    spawnMany(orderedList) {
         let spawned = 0;
-        while (toSpawn && spawned < 3) {
-            game.spawnFighter('red', toSpawn);
+        while (spawned < 3) {
+            const toSpawn = this.pickFrom(orderedList);
+            if (!toSpawn) break;
+            this.game.spawnFighter('red', toSpawn);
             spawned++;
-            // Re-evaluate after each spawn (gold/cooldowns/count may have changed)
-            toSpawn = this.pickAffordable(
-                redHealth < 400 ? ['tank', 'paladin', 'healer', ...this.selectedFighters] :
-                blueHealth < 500 && game.redCount <= game.blueCount ? ['berserker', 'assassin', 'troll', ...this.selectedFighters] :
-                this.selectedFighters
-            );
         }
     }
 }
