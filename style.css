@@ -189,26 +189,194 @@ body {
 }
 
 @media (max-width: 768px) {
+    body {
+        overflow: hidden;
+    }
+
+    .game-container {
+        position: relative;
+    }
+
     .controls-panel {
         flex-direction: column;
-        gap: 15px;
+        gap: 10px;
         min-height: auto;
-        padding: 15px;
+        padding: 10px;
+    }
+
+    .control-group {
+        width: 100%;
     }
 
     .fighter-buttons {
-        flex-wrap: wrap;
-        justify-content: center;
+        display: flex;
+        flex-wrap: nowrap;
+        justify-content: flex-start;
+        gap: 8px;
+        overflow-x: auto;
+        overflow-y: hidden;
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: 4px;
     }
 
     .team-info {
         flex-direction: row;
         min-width: auto;
+        width: 100%;
+        justify-content: center;
     }
 
     #gameCanvas {
         width: 100%;
         height: auto;
+    }
+
+    .fighter-btn {
+        flex: 0 0 auto;
+        width: 72px;
+        min-width: 72px;
+        padding: 8px 6px;
+    }
+
+    .fighter-btn .fighter-name {
+        font-size: 11px;
+    }
+
+    .controls-panel .fighter-btn .fighter-icon {
+        font-size: 18px;
+        margin-bottom: 2px;
+    }
+
+    .controls-panel .fighter-btn .fighter-desc,
+    .controls-panel .fighter-btn .fighter-stats {
+        display: none;
+    }
+
+    /* PvE mobile: keep controls grouped at the bottom */
+    body.mode-pve .controls-panel {
+        position: relative;
+        border-radius: 15px 15px 0 0;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-bottom: none;
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+    }
+
+    body.mode-pve .controls-panel .control-group:last-of-type {
+        display: none;
+    }
+
+    /* PvP mobile: top and bottom controls for two players */
+    body.mode-pvp .game-area {
+        padding-top: 170px;
+        padding-bottom: 170px;
+    }
+
+    body.mode-pvp .controls-panel {
+        position: fixed;
+        inset: 0;
+        padding: 8px;
+        background: transparent;
+        backdrop-filter: none;
+        border: none;
+        border-radius: 0;
+        min-height: 0;
+        z-index: 40;
+        pointer-events: none;
+    }
+
+    body.mode-pvp .controls-panel .control-group {
+        position: absolute;
+        left: 8px;
+        right: 8px;
+        pointer-events: auto;
+    }
+
+    body.mode-pvp .controls-panel .control-group:first-of-type {
+        top: 8px;
+        transform: rotate(180deg);
+        transform-origin: center;
+    }
+
+    body.mode-pvp .controls-panel .control-group:last-of-type {
+        bottom: 8px;
+    }
+
+    body.mode-pvp .controls-panel .control-group h3 {
+        margin-bottom: 6px;
+        font-size: 13px;
+        white-space: nowrap;
+        text-align: center;
+    }
+
+    body.mode-pvp .controls-panel .fighter-buttons {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 4px;
+        overflow: visible;
+        padding-bottom: 0;
+    }
+
+    body.mode-pvp .controls-panel .team-info {
+        display: block;
+        position: absolute;
+        left: 8px;
+        right: 8px;
+        top: 0;
+        bottom: 0;
+        pointer-events: none;
+        z-index: 45;
+    }
+
+    body.mode-pvp .controls-panel .team-info .team {
+        position: absolute;
+        width: calc(100% - 16px);
+    }
+
+    body.mode-pvp .controls-panel .team-info .blue-team {
+        top: 92px;
+        transform: rotate(180deg);
+        transform-origin: center;
+    }
+
+    body.mode-pvp .controls-panel .team-info .red-team {
+        bottom: 92px;
+    }
+
+    body.mode-pvp .controls-panel .fighter-btn {
+        width: 100%;
+        min-width: 0;
+        padding: 6px 2px;
+    }
+
+    body.mode-pvp .controls-panel .fighter-btn .fighter-name {
+        width: 100%;
+        font-size: 10px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    body.mode-pvp .controls-panel .fighter-btn .fighter-icon {
+        font-size: 16px;
+    }
+
+    body.mode-pvp .controls-panel .team {
+        flex: 1 1 0;
+        min-width: 0;
+        padding: 4px 6px;
+        background: rgba(0, 0, 0, 0.42);
+        border-width: 1px;
+    }
+
+    body.mode-pvp .controls-panel .team h4 {
+        margin-bottom: 2px;
+        font-size: 10px;
+    }
+
+    body.mode-pvp .controls-panel .team-stats {
+        gap: 1px;
+        font-size: 9px;
     }
 }
 
@@ -326,6 +494,7 @@ body {
     top: 0;
     width: 100%;
     height: 100%;
+    overflow-y: auto;
     background-color: rgba(0, 0, 0, 0.8);
     backdrop-filter: blur(5px);
 }
@@ -624,9 +793,11 @@ body {
 /* Responsive design for modal */
 @media (max-width: 768px) {
     .modal-content {
-        margin: 10% auto;
-        padding: 20px;
+        margin: 12px auto;
+        padding: 16px;
         width: 95%;
+        max-height: calc(100dvh - 24px);
+        overflow-y: auto;
     }
 
     .turn-indicator {
@@ -640,12 +811,12 @@ body {
 
     .fighter-grid {
         grid-template-columns: repeat(2, 1fr);
-        gap: 10px;
+        gap: 8px;
     }
 
     .fighter-option {
-        padding: 10px 8px;
-        min-height: 120px;
+        padding: 8px 6px;
+        min-height: 104px;
     }
 
     .fighter-option .fighter-icon {
@@ -663,6 +834,10 @@ body {
     .selection-buttons {
         flex-direction: column;
         gap: 10px;
+        position: sticky;
+        bottom: 0;
+        background: linear-gradient(to top, rgba(26, 26, 46, 0.96), rgba(26, 26, 46, 0.8));
+        padding-top: 8px;
     }
 
     .next-btn,
@@ -675,7 +850,7 @@ body {
 /* Very small screens */
 @media (max-width: 480px) {
     .fighter-grid {
-        grid-template-columns: repeat(1, 1fr);
+        grid-template-columns: repeat(2, 1fr);
         gap: 8px;
     }
 

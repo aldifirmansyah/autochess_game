@@ -2577,11 +2577,33 @@ class Game {
         // AI mode
         this.aiMode = false;
         this.aiController = null;
+        this.currentMode = 'pvp';
 
         this.setupObstacles();
+        this.applyModeLayout();
+        this.updateControlLabels();
         this.setupModeSelection();
         this.setupEventListeners();
         this.gameLoop();
+    }
+
+    applyModeLayout() {
+        document.body.classList.remove('mode-pve', 'mode-pvp');
+        document.body.classList.add(this.currentMode === 'ai' ? 'mode-pve' : 'mode-pvp');
+    }
+
+    updateControlLabels() {
+        const controlTitles = document.querySelectorAll('.controls-panel .control-group h3');
+        if (controlTitles.length < 2) return;
+
+        if (this.currentMode === 'ai') {
+            controlTitles[0].textContent = 'Blue Team';
+            controlTitles[1].textContent = 'AI Team';
+            return;
+        }
+
+        controlTitles[0].textContent = 'Player 1 (Blue)';
+        controlTitles[1].textContent = 'Player 2 (Red)';
     }
 
     setupObstacles() {
@@ -2673,7 +2695,10 @@ class Game {
     }
 
     selectGameMode(mode) {
+        this.currentMode = mode;
         this.aiMode = (mode === 'ai');
+        this.applyModeLayout();
+        this.updateControlLabels();
         document.getElementById('mode-selection-modal').style.display = 'none';
         this.setupFighterSelection();
     }
