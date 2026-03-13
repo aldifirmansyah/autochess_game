@@ -3466,11 +3466,20 @@ class Game {
         return closestTarget;
     }
 
+    canvasToViewportPosition(canvasX, canvasY) {
+        const canvasRect = this.canvas.getBoundingClientRect();
+        const scaleX = canvasRect.width / this.canvas.width;
+        const scaleY = canvasRect.height / this.canvas.height;
+
+        return {
+            x: canvasRect.left + (canvasX * scaleX),
+            y: canvasRect.top + (canvasY * scaleY)
+        };
+    }
+
     createBaseProjectile(baseSide, target) {
         const base = this.bases[baseSide];
-
-        // Get the canvas position on the page
-        const canvasRect = this.canvas.getBoundingClientRect();
+        const baseViewport = this.canvasToViewportPosition(base.x, base.y);
 
         const projectile = {
             x: base.x,
@@ -3488,8 +3497,8 @@ class Game {
         const projectileElement = document.createElement('div');
         projectileElement.style.cssText = `
             position: fixed;
-            left: ${canvasRect.left + base.x}px;
-            top: ${canvasRect.top + base.y}px;
+            left: ${baseViewport.x}px;
+            top: ${baseViewport.y}px;
             width: 12px;
             height: 12px;
             background: ${baseSide === 'blue' ? '#4ecdc4' : '#ff6b6b'};
@@ -3527,9 +3536,9 @@ class Game {
 
                 // Update visual position
                 if (projectile.element) {
-                    const canvasRect = this.canvas.getBoundingClientRect();
-                    projectile.element.style.left = `${canvasRect.left + projectile.x}px`;
-                    projectile.element.style.top = `${canvasRect.top + projectile.y}px`;
+                    const viewportPos = this.canvasToViewportPosition(projectile.x, projectile.y);
+                    projectile.element.style.left = `${viewportPos.x}px`;
+                    projectile.element.style.top = `${viewportPos.y}px`;
                 }
             }
         }
